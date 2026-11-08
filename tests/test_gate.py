@@ -168,7 +168,14 @@ def test_monitor_mode_sends_original(tmp_path):
     sess = g.session()
     sess.load_private("crm:C-1042", REC)
     d = search(sess, f"SSN {SSN}")
-    assert d.mode == "monitor" and d.reason.startswith("Monitor mode") and SSN in sent_text(d)
+    assert d.mode == "monitor" and d.reason.startswith("Monitor mode")
+    assert SSN not in d.model_dump_json() and "2290" in sent_text(d)      # masked copy for display/ledger
+
+
+def test_low_severity_hit_is_masked_in_attempted(s):
+    d = search(s, f"{REC['name']} flood claim {REC['city']}")
+    shown = "".join(x.text for x in d.attempted["query"])
+    assert REC["city"] not in shown and "Okonkwo" not in shown
 
 
 # ---------------------------------------------------------------- units

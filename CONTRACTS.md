@@ -44,7 +44,10 @@ Actions: `allow` (clean) · `rewrite` (search channels: local model rewrites the
 research intent without the private details; the rewrite is re-scanned and falls back to rule-based
 removal) · `redact` (non-search channels where spans can be cut) · `block` (policy `block_kinds`,
 encoded/exfil attempts, anything not allowlisted in lockdown, or a rewrite that is still dirty).
-`mode="monitor"` records the decision but sends the original (for rollout); the UI must show this.
+`mode="monitor"` records the decision but the integrations send the original (for rollout); the UI must
+show this. In monitor mode `Decision.sent`/`sent_url` (and the ledger) hold a **masked copy** of the
+original, never raw values. `Decision.layer_ms` keys: `destination, taint, scan` (patterns + vault),
+`split, context, rewrite` (only the layers that ran).
 
 Integrations:
 ```python
@@ -60,7 +63,7 @@ call `mark_untrusted` automatically.
 
 | Method | Path | Returns |
 |---|---|---|
-| GET | `/api/status` | `{ok, mode, policy, model, model_available, tavily: "live"\|"replay", netguard: {installed, blocked, allowed_hosts, last_blocked}, ledger: LedgerStatus}` |
+| GET | `/api/status` | `{ok, mode, policy, model, model_available, use_context_model, tavily: "live"\|"replay", netguard: {installed, blocked, allowed_hosts, last_blocked: ["host:port"]}, bypass_attempts: [{dest, ts}], ledger: LedgerStatus}` |
 | GET | `/api/scenarios` | `ScenarioInfo[]` |
 | POST | `/api/sessions` body `{scenario, mode: "scripted"\|"live"}` | `SessionInfo` (runs in background) |
 | GET | `/api/sessions` | `SessionInfo[]` newest first |

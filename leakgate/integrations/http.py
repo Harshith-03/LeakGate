@@ -36,7 +36,7 @@ def guarded_get(session: Session, url: str, params: Optional[dict] = None, origi
     if d.action == "block" or d.sent is None or dry_run:
         return GuardedHttp(d)
     try:
-        r = requests.get(url, params=(d.sent or {}).get("params") or None, timeout=TIMEOUT)
+        r = requests.get(url, params=(params if d.mode == "monitor" else (d.sent or {}).get("params")) or None, timeout=TIMEOUT)
         session.mark_untrusted(url, r.text[:20000])
         return GuardedHttp(d, r.status_code, r.text)
     except (requests.RequestException, OSError) as e:
@@ -49,7 +49,7 @@ def guarded_post(session: Session, url: str, json_body: Any, origin: str = "agen
     if d.action == "block" or d.sent is None or dry_run:
         return GuardedHttp(d)
     try:
-        r = requests.post(url, json=(d.sent or {}).get("json"), timeout=TIMEOUT)
+        r = requests.post(url, json=json_body if d.mode == "monitor" else (d.sent or {}).get("json"), timeout=TIMEOUT)
         session.mark_untrusted(url, r.text[:20000])
         return GuardedHttp(d, r.status_code, r.text)
     except (requests.RequestException, OSError) as e:

@@ -212,6 +212,15 @@ class Gate:
     def host_allowlisted(self, host: str) -> bool:
         return any(r.host.lower() == host for r in self.policy.destinations)
 
+    def _masked_copy(self, payload: dict) -> dict:
+        out = copy.deepcopy(payload)
+        for path, text in flatten(out):
+            try:
+                set_path(out, path, self.mask_text(text) or "")
+            except (KeyError, IndexError, TypeError):
+                pass
+        return out
+
     def mask_text(self, text: Optional[str]) -> Optional[str]:
         """For DISPLAY: mask every vault value and sensitive pattern in free text (agent answers, logs)."""
         if not text:
@@ -314,9 +323,12 @@ class Gate:
             fields.insert(0, ("url", req.url))
 
         def done(action: str, reason: str, sent: Optional[dict], by: Optional[str] = None) -> Decision:
+            sent_url = req.url if sent is not None else None
             if pol.mode == "monitor":
-                reason = f"Monitor mode: would have {'allowed' if action == 'allow' else action + 'ed' if action != 'rewrite' else 'rewritten'} this. {reason}"
-                sent = copy.deepcopy(req.payload)
+                reason = (f"Monitor mode: would have {'allowed' if action == 'allow' else action + 'ed' if action != 'rewrite' else 'rewritten'} "
+                          f"this. The original was sent; shown here masked. {reason}")
+                sent = self._masked_copy(req.payload)          # display/ledger copy; integrations send the original
+                sent_url = self.mask_text(req.url) if req.url else None
             if sent is not None and action != "block":
                 for _, text in flatten(sent):
                     for m in DIGIT_RUN.finditer(text):
@@ -326,7 +338,7 @@ class Gate:
             return Decision(request_id=req.id, session_id=req.session_id, channel=req.channel, tool=req.tool,
                             destination=dest, action=action, reason=reason, findings=findings,  # type: ignore[arg-type]
                             attempted=self._segments(fields, findings), sent=sent, rewritten_by=by,  # type: ignore[arg-type]
-                            sent_url=req.url if sent is not None else None,
+                            sent_url=sent_url,
                             taint=taint, mode=pol.mode, latency_ms=round((time.perf_counter() - t0) * 1000, 2),
                             layer_ms={k: round(v, 2) for k, v in layer_ms.items()})
 
@@ -515,7 +527,7 @@ class Gate:
         for path, text in fields:
             data = [(f.start, f.end, i) for i, f in enumerate(findings)
                     if f.field == path and f.start is not None and f.end is not None
-                    and f.layer in ("pattern", "fingerprint", "context") and f.severity != "low"]
+                    and f.layer in ("pattern", "fingerprint", "context")]
             links = [(f.start, f.end, i) for i, f in enumerate(findings)
                      if f.field == path and f.kind == "untrusted_url" and f.start is not None and f.end is not None
                      and not any(f.start <= a < f.end for a, _, _ in data)]

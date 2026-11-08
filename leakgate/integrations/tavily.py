@@ -72,7 +72,7 @@ class GuardedTavily:
         d = self.session.inspect(channel="search", tool="tavily.search", destination="api.tavily.com", payload=payload)
         if d.action == "block" or d.sent is None:
             return GuardedResponse(d, mode="blocked")
-        body = dict(d.sent)
+        body = dict(payload) if d.mode == "monitor" else dict(d.sent)    # monitor: the original goes out
         results: list[dict] = []
         answer = error = None
         if self.replay:
@@ -104,7 +104,8 @@ class GuardedTavily:
         error = None
         if not self.replay:
             try:
-                r = requests.post(EXTRACT_URL, json=d.sent, headers={"Authorization": f"Bearer {self.key}"}, timeout=TIMEOUT)
+                body = {"urls": list(urls)} if d.mode == "monitor" else d.sent
+                r = requests.post(EXTRACT_URL, json=body, headers={"Authorization": f"Bearer {self.key}"}, timeout=TIMEOUT)
                 results = list((r.json() or {}).get("results") or []) if r.status_code < 400 else []
                 error = None if r.status_code < 400 else f"Tavily HTTP {r.status_code}"
             except (requests.RequestException, ValueError, OSError) as e:

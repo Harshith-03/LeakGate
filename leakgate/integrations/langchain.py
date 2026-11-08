@@ -25,7 +25,7 @@ def guard_tool(tool: BaseTool, session: Session, channel: str = "tool", destinat
         d = session.inspect(channel=channel, tool=f"langchain.{tool.name}", destination=dest, payload=dict(kwargs))
         if d.action == "block" or d.sent is None:
             return f"[blocked by LeakGate: {d.reason}]"
-        out = tool.invoke(d.sent)
+        out = tool.invoke(dict(kwargs) if d.mode == "monitor" else d.sent)
         text = out if isinstance(out, str) else str(out)
         if untrusted_output:
             session.mark_untrusted(f"tool:{tool.name}", text)
