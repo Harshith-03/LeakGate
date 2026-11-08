@@ -94,14 +94,17 @@ export function startPrompt(prompt: string, plantPoison: boolean) {
   return startRun(CUSTOM_SCENARIO, "live", { prompt, plant_poison: plantPoison });
 }
 
-/** On first visit, show the newest run (if any) so a refresh mid-demo doesn't blank the screen. */
+/**
+ * On first visit, resume the newest run if it is still running, so a refresh mid-demo doesn't lose it.
+ * A finished run is not restored: a fresh load starts at the centred prompt.
+ */
 export async function restoreLatest() {
   if (restored || state.session || state.starting) return;
   restored = true;
   try {
     const list = await api.sessions();
     const latest = list[0];
-    if (!latest || state.session || state.starting) return;
+    if (!latest || latest.status !== "running" || state.session || state.starting) return;
     const token = ++runToken;
     set({ session: latest, events: [], fresh: new Set() });
     void poll(token, latest.session_id, false);

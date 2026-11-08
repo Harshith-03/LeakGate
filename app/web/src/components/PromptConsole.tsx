@@ -215,7 +215,7 @@ export function PromptConsole({ className }: { className?: string }) {
         <div className="scroll-thin mt-1.5 max-h-[38vh] overflow-y-auto">
           <div className="grid font-mono text-[15px] leading-[1.6]">
             <div aria-hidden className="pointer-events-none col-start-1 row-start-1 whitespace-pre-wrap break-words text-ink [overflow-wrap:anywhere]"
-              style={{ textShadow: "0 0 10px rgb(116 217 255 / 0.25)" }}>
+              style={{ textShadow: "0 0 10px rgb(var(--brand-rgb) / 0.3)" }}>
               {!focused && !prompt && <span className="cursor-block mr-1.5" />}
               {prompt || <span className="text-ink-3" style={{ textShadow: "none" }}>{PLACEHOLDER}</span>}
               {!focused && prompt && <span className="cursor-block" />}

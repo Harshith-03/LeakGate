@@ -13,7 +13,7 @@
 
   /* CRT screen glass */
   --screen: #030806;
-  --screen-center: #0b1913;
+  --screen-center: #0a1c18;
   --surface: #0d1813;      /* raised things on a screen: fields, wells */
   --surface-2: #08110d;    /* recessed wells */
   --surface-3: #15241c;    /* neutral fills, chips */
@@ -27,44 +27,46 @@
   --ink-3: #8fa596;
   --ink-inverse: #04110a;
 
-  /* brand: cool cyan phosphor (interactive, focus, selection) */
-  --brand: #74d9ff;
-  --brand-hover: #a8e9ff;
-  --on-brand: #03141c;
-  --brand-soft: #133749;
-  --brand-tint: #0a212b;
-  --accent: #74d9ff;
-  --focus: #93e3ff;
+  /* brand: electric cyan phosphor (interactive, focus, selection) */
+  --brand: #3fe1ff;
+  --brand-hover: #8eefff;
+  --on-brand: #021820;
+  --brand-soft: #0e3a4c;
+  --brand-tint: #08222e;
+  --accent: #b685ff;
+  --accent-rgb: 182 133 255;
+  --magenta-rgb: 255 79 216;
+  --focus: #7fecff;
 
-  /* states: one phosphor family each (always paired with an icon and a word) */
-  --good: #62f29e;
-  --good-soft: #0b2b1a;
-  --good-rgb: 98 242 158;
-  --warn: #ffb64a;
-  --warn-soft: #2f220b;
-  --warn-rgb: 255 182 74;
-  --crit: #ff6d61;
-  --crit-soft: #38130f;
-  --crit-rgb: 255 109 97;
-  --info: #93caff;
-  --info-soft: #0e2034;
-  --info-rgb: 147 202 255;
-  --idle-rgb: 168 236 196;
-  --brand-rgb: 116 217 255;
+  /* states: one saturated phosphor family each (always paired with an icon and a word) */
+  --good: #3dfc93;
+  --good-soft: #072d1a;
+  --good-rgb: 61 252 147;
+  --warn: #ffb21f;
+  --warn-soft: #33230a;
+  --warn-rgb: 255 178 31;
+  --crit: #ff5263;
+  --crit-soft: #3d0f16;
+  --crit-rgb: 255 82 99;
+  --info: #7cc4ff;
+  --info-soft: #0c1f38;
+  --info-rgb: 124 196 255;
+  --idle-rgb: 110 255 190;
+  --brand-rgb: 63 225 255;
 
   /* the lockdown lamp */
-  --hero: #3d100c;
-  --on-hero: #ffe3de;
-  --on-hero-2: #ffb6ad;
+  --hero: #3d0d14;
+  --on-hero: #ffe3e6;
+  --on-hero-2: #ffb0b9;
 
-  /* bezel: moulded graphite plastic */
-  --bezel-hi: #434b58;
-  --bezel: #2a3039;
-  --bezel-lo: #1b1f26;
-  --bezel-deep: #121419;
-  --chrome: #dde2ea;
-  --chrome-2: #aeb6c2;
-  --chrome-3: #949cab;
+  /* bezel: moulded plastic with a cool indigo cast */
+  --bezel-hi: #4a5372;
+  --bezel: #2b3146;
+  --bezel-lo: #1a1e2d;
+  --bezel-deep: #11131c;
+  --chrome: #e2e7f5;
+  --chrome-2: #b4bcd4;
+  --chrome-3: #9ba4bf;
 
   /* benchmark systems: the validated hue order regex → presidio → rules → full, lifted to phosphor
      brightness for a dark screen. Every chart also ships value labels and a table view. */
@@ -229,12 +231,13 @@
   z-index: -2;
   pointer-events: none;
   background:
-    radial-gradient(55% 45% at 82% 6%, rgb(86 66 170 / 0.26), transparent 70%),
-    radial-gradient(45% 40% at 6% 92%, rgb(18 120 128 / 0.2), transparent 72%),
-    radial-gradient(40% 32% at 40% 48%, rgb(40 56 110 / 0.22), transparent 75%),
-    linear-gradient(180deg, #080d1c 0%, #0c1328 52%, #080c19 100%);
+    radial-gradient(55% 45% at 84% 4%, rgb(128 70 230 / 0.34), transparent 70%),
+    radial-gradient(42% 38% at 4% 96%, rgb(10 150 170 / 0.3), transparent 72%),
+    radial-gradient(38% 30% at 62% 70%, rgb(220 60 190 / 0.12), transparent 75%),
+    radial-gradient(45% 36% at 30% 30%, rgb(40 70 190 / 0.24), transparent 75%),
+    linear-gradient(180deg, #070a1d 0%, #0b1030 52%, #070a1b 100%);
 }
-.starfield {
+.starfield, .nebula {
   position: fixed;
   inset: 0;
   z-index: -1;
@@ -246,7 +249,7 @@
 /* Component classes live in the components layer, so Tailwind utilities on the same element win. */
 @layer components {
   /* ================================================================ the CRT monitor
-     .crt            moulded bezel (gradients, bevel highlight, grain, long shadow)
+     .crt            moulded bezel (gradients, bevel highlight, coloured rim, grain, long shadow)
      .crt-head       title strip on the bezel: LED, title, brand plate, actions
      .crt-screen     recessed curved glass with inner vignette and glare
      .crt-fx         scanlines + slow roll + ≤2% flicker, above the content, never interactive
@@ -262,8 +265,25 @@
     padding: 9px;
     background:
       var(--grain),
+      radial-gradient(120% 60% at 50% -20%, rgb(var(--phos-rgb) / 0.09), transparent 60%),
       linear-gradient(180deg, var(--bezel-hi) 0px, var(--bezel) 18px, var(--bezel) 62%, var(--bezel-lo) 100%);
-    box-shadow: var(--bevel), var(--shadow-monitor);
+    box-shadow:
+      var(--bevel),
+      var(--shadow-monitor),
+      0 70px 110px -58px rgb(var(--phos-rgb) / 0.28);
+  }
+  /* a coloured rim light along the top edge of the bezel, in the screen's phosphor and the violet accent */
+  .crt::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, transparent, rgb(var(--phos-rgb) / 0.75) 30%, rgb(var(--accent-rgb) / 0.7) 70%, transparent);
+    box-shadow: 0 0 10px 1px rgb(var(--phos-rgb) / 0.35);
+    pointer-events: none;
   }
   /* the lifted shadow is pre-rendered and faded in: cheap to animate */
   .crt::after {
@@ -272,7 +292,7 @@
     inset: 0;
     z-index: -1;
     border-radius: inherit;
-    box-shadow: var(--shadow-monitor-lift);
+    box-shadow: var(--shadow-monitor-lift), 0 90px 120px -60px rgb(var(--phos-rgb) / 0.38);
     opacity: 0;
     transition: opacity 260ms ease-out;
     pointer-events: none;
@@ -283,13 +303,14 @@
   .crt[data-tone="info"] { --phos-rgb: var(--info-rgb); }
   .crt[data-tone="brand"] { --phos-rgb: var(--brand-rgb); }
 
-  /* an active or alarmed screen glows into the room */
+  /* an active or alarmed screen glows into the room, and its long shadow takes its colour */
   .crt[data-glow] {
     box-shadow:
       var(--bevel),
-      0 0 0 1px rgb(var(--phos-rgb) / 0.34),
-      0 0 46px -6px rgb(var(--phos-rgb) / 0.3),
-      var(--shadow-monitor);
+      0 0 0 1px rgb(var(--phos-rgb) / 0.45),
+      0 0 54px -4px rgb(var(--phos-rgb) / 0.4),
+      var(--shadow-monitor),
+      0 80px 120px -50px rgb(var(--phos-rgb) / 0.5);
   }
 
   .crt-lift {
@@ -364,6 +385,7 @@
     border-radius: 13px / 15px;
     color: var(--ink);
     background:
+      radial-gradient(90% 70% at 50% 35%, rgb(var(--phos-rgb) / 0.055), transparent 70%),
       radial-gradient(130% 95% at 50% 38%, var(--screen-center) 0%, var(--screen) 74%);
     box-shadow:
       inset 0 0 0 1px rgb(0 0 0 / 0.95),
@@ -429,9 +451,15 @@
   }
 
   /* power-on: a bright horizontal line opens into the full picture */
-  .crt-on {
+  /* the glass stays visible (a dark, powered-off tube with its glare); only the picture opens */
+  .crt-on > .crt-body {
     animation: crt-on 430ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
     animation-delay: var(--d, 0ms);
+  }
+  .crt-on > .crt-body.crt-glitch {
+    animation:
+      crt-on 430ms cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0ms) backwards,
+      crt-glitch 360ms steps(6, end) calc(var(--d, 0ms) + 430ms) 1;
   }
   .crt-on::before {
     content: "";
@@ -524,8 +552,9 @@
     box-shadow:
       0 0 0 1.5px #0b0d11,
       0 0 0 2.5px rgb(255 255 255 / 0.07),
-      0 0 6px 1px rgb(var(--c) / 0.85),
-      0 0 16px 4px rgb(var(--c) / 0.4);
+      0 0 7px 2px rgb(var(--c) / 0.95),
+      0 0 18px 5px rgb(var(--c) / 0.5),
+      0 0 38px 10px rgb(var(--c) / 0.2);
   }
   .led[data-state="ok"] { --c: var(--good-rgb); }
   .led[data-state="warn"] { --c: var(--warn-rgb); }
@@ -842,9 +871,22 @@
   animation: lg-spin 0.9s linear infinite;
 }
 
+/* rack plates get the same thin rim light as the monitors, in cyan and violet */
+.rack::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 18px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgb(var(--brand-rgb) / 0.6) 30%, rgb(var(--accent-rgb) / 0.6) 70%, transparent);
+  box-shadow: 0 0 10px 1px rgb(var(--brand-rgb) / 0.25);
+  pointer-events: none;
+}
+
 /* ================================================================ reduced motion: everything holds still */
 @media (prefers-reduced-motion: reduce) {
-  .skeleton, .live-dot, .spin, .crt-fx::before, .crt-fx::after, .crt-on, .crt-on::before, .crt-glitch, .crt-alarm,
+  .skeleton, .live-dot, .spin, .crt-fx::before, .crt-fx::after, .crt-on > .crt-body, .crt-on::before, .crt-glitch, .crt-alarm,
   .led-pulse, .led-blink, .cursor-block {
     animation: none !important;
   }

@@ -27,7 +27,7 @@ export function PageHeader({ title, subtitle, actions, eyebrow, led = "brand" }:
           </div>
         )}
         <h1 className="font-display text-[26px] leading-[1.1] font-semibold tracking-[-0.02em] text-white sm:text-[32px]"
-          style={{ textShadow: "0 2px 24px rgb(116 217 255 / 0.18)" }}>
+          style={{ textShadow: "0 2px 28px rgb(var(--accent-rgb) / 0.35)" }}>
           {title}
         </h1>
         {subtitle && <div className="mt-2.5 max-w-[72ch] text-body text-chrome-2">{subtitle}</div>}

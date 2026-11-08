@@ -19,13 +19,13 @@ export function LogoMark({ size = 30 }: { size?: number }) {
       <rect x="2.5" y="2.5" width="27" height="27" rx="7" fill="url(#lg-glass)" />
       <path
         d="M16 6.5 24 9.6v5.9c0 5-3.4 8.6-8 9.8-4.6-1.2-8-4.8-8-9.8V9.6l8-3.1Z"
-        stroke="#9fe6ff"
+        stroke="#7fecff"
         strokeWidth="1.7"
         strokeLinejoin="round"
         style={{ filter: "drop-shadow(0 0 2px rgb(116 217 255 / 0.8))" }}
       />
-      <path d="M12.6 12v8.2M16 10.9v11.1M19.4 12v8.2M11.6 15.3h8.8" stroke="#62f29e" strokeWidth="1.6" strokeLinecap="round"
-        style={{ filter: "drop-shadow(0 0 2px rgb(98 242 158 / 0.7))" }} />
+      <path d="M12.6 12v8.2M16 10.9v11.1M19.4 12v8.2M11.6 15.3h8.8" stroke="#3dfc93" strokeWidth="1.6" strokeLinecap="round"
+        style={{ filter: "drop-shadow(0 0 2px rgb(61 252 147 / 0.75))" }} />
     </svg>
   );
 }
