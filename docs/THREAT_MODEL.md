@@ -17,8 +17,8 @@ It controls the third leg, the egress, using what it knows about the first two:
 | Session state | What may leave |
 |---|---|
 | Nothing private read | Anything to approved hosts; unapproved hosts allowed and noted |
-| Private data read | Every outbound payload is scanned; private values are rewritten out of search queries or the request is blocked |
-| Private data **and** untrusted content read (**lockdown**) | Only approved destinations, only clean payloads; any link that came from web content and carries data is an exfiltration and is blocked |
+| Private data read | Only approved destinations; every outbound payload is scanned; private values are rewritten out of search queries or the request is blocked |
+| Private data **and** untrusted content read (**lockdown**) | As above, plus: any link that came from web content is treated as attacker-controlled, and one that carries data is an exfiltration (blocked) |
 
 ## Where it sits
 In-process SDK around the agent's tools (Tavily search/extract, HTTP, LangChain tools, LLM calls),

@@ -326,6 +326,7 @@ class Gate:
             return Decision(request_id=req.id, session_id=req.session_id, channel=req.channel, tool=req.tool,
                             destination=dest, action=action, reason=reason, findings=findings,  # type: ignore[arg-type]
                             attempted=self._segments(fields, findings), sent=sent, rewritten_by=by,  # type: ignore[arg-type]
+                            sent_url=req.url if sent is not None else None,
                             taint=taint, mode=pol.mode, latency_ms=round((time.perf_counter() - t0) * 1000, 2),
                             layer_ms={k: round(v, 2) for k, v in layer_ms.items()})
 
@@ -335,14 +336,16 @@ class Gate:
         # 1. destination
         t = time.perf_counter()
         rule = self.rule_for(dest, req.channel)
-        if rule is None and taint.lockdown:
+        if rule is None and taint.private:
+            why = ("has read private data and untrusted web content (lockdown)" if taint.lockdown
+                   else "has read private data")
             findings.append(Finding(layer="destination", kind="not_allowlisted", field="destination", preview=dest,
-                                    severity="critical", explanation=f"{dest} is not an approved destination, and this agent "
-                                    "has read private data and untrusted web content, so only approved places are allowed."))
+                                    severity="critical", explanation=f"{dest} is not an approved destination for "
+                                    f"{req.channel}, and this agent {why}, so only approved places are allowed."))
         elif rule is None:
             findings.append(Finding(layer="destination", kind="not_allowlisted", field="destination", preview=dest,
-                                    severity="low", explanation=f"{dest} is not on the approved list. Allowed while the agent "
-                                    "has not read both private data and untrusted web content."))
+                                    severity="low", explanation=f"{dest} is not on the approved list. Allowed because "
+                                    "this agent has not read private data yet."))
         elif taint.lockdown and not rule.allow_in_lockdown:
             findings.append(Finding(layer="destination", kind="not_allowlisted", field="destination", preview=dest,
                                     severity="critical", explanation=f"{dest} is approved, but not during lockdown."))
@@ -433,8 +436,11 @@ class Gate:
             return done("block", f"Blocked a prompt-injection exfiltration: {_what(data)} {verb} headed to {u.preview}, "
                                  "a link planted in a web page the agent read.", None)
         if crit_dest:
-            return done("block", f"Lockdown: {dest} is not an approved destination, and this agent has read private "
-                                 "data and untrusted web content.", None)
+            if taint.lockdown:
+                return done("block", f"Lockdown: {dest} is not an approved destination, and this agent has read "
+                                     "private data and untrusted web content.", None)
+            return done("block", f"Blocked: {dest} is not an approved destination, and this agent has read private "
+                                 "data. Read pages through an approved channel such as Tavily extract.", None)
         split = [f for f in data if f.kind == "split_leak"]
         if split:
             what = split[0].explanation.split("completes the ", 1)[-1].rstrip(".")

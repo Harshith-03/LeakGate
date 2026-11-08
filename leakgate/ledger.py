@@ -63,7 +63,8 @@ class Ledger:
                 tool=d.tool, channel=d.channel, destination=d.destination, action=d.action,
                 kinds=sorted({f.kind for f in d.findings}),
                 attempted_hmac=self.attempted_hmac(attempted, url),
-                sent=d.sent, sent_sha256=_sha(canonical(d.sent)) if d.sent is not None else None,
+                sent=d.sent, sent_url=d.sent_url,
+                sent_sha256=_sha(canonical({"payload": d.sent, "url": d.sent_url})) if d.sent is not None else None,
                 findings=len(d.findings), prev_hash=_sha(lines[-1]) if lines else "")
             line = rec.model_dump_json()
             self.path.parent.mkdir(parents=True, exist_ok=True)

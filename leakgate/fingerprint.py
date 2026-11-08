@@ -32,7 +32,7 @@ from datetime import datetime
 from typing import Optional
 
 TOKEN = re.compile(r"[^\W_]+", re.UNICODE)
-DIGIT_RUN = re.compile(r"\d(?:[ \t\-./()]{0,3}\d)*")
+DIGIT_RUN = re.compile(r"\d(?:[ \t\-./(),]{0,3}\d)*")      # "," so "$684,200" is one number
 SPACED = re.compile(r"\d[ \t.\-]\d[ \t.\-]\d")
 SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 MIN_DIGITS = 6

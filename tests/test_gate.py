@@ -203,3 +203,27 @@ def test_mask_text_for_display(s, gate):
     shown = gate.mask_text(f"Dear Maria Okonkwo-Reyes, claim {REC['claim_id']} (SSN {SSN}) is under review.")
     assert "Okonkwo" not in shown and REC["claim_id"] not in shown and SSN not in shown
     assert shown.startswith("Dear ") and "under review" in shown
+
+
+def test_private_session_blocks_unapproved_host(s):
+    d = s.inspect(channel="http", tool="http.get", destination="cdn-pixel.io", payload={},
+                  url="https://cdn-pixel.io/a/531.gif")
+    assert d.action == "block" and "not an approved destination" in d.reason
+
+
+def test_amount_with_thousands_separator(s):
+    assert search(s, "claim worth $412,600 appeal").action == "rewrite"
+
+
+def test_zero_width_inside_percent_encoding(s):
+    from urllib.parse import quote
+    hidden = quote(SSN.replace("5", "​5"))
+    d = s.inspect(channel="search", tool="tavily.search", destination="api.tavily.com", payload={"query": f"x?q={hidden}"})
+    assert d.action == "block"
+
+
+def test_sent_url_recorded(gate, s):
+    d = s.inspect(channel="http", tool="http.get", destination="www.fema.gov", payload={},
+                  url="https://www.fema.gov/flood-insurance")
+    assert d.action == "allow" and d.sent_url == "https://www.fema.gov/flood-insurance"
+    assert gate.ledger.records(1)[0].sent_url == d.sent_url

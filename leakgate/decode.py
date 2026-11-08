@@ -167,6 +167,11 @@ def variants(s: str) -> list[Variant]:
                     seen.add(v.text)
                     out.append(v)
                     nxt.append((v.text, v.start, v.end))
+                    u2, _ = unicode_view(v.text)            # e.g. zero-width chars, then percent-encoded
+                    if u2 != v.text and u2 not in seen:
+                        seen.add(u2)
+                        out.append(Variant(u2, "unicode", v.start, v.end))
+                        nxt.append((u2, v.start, v.end))
                     if len(out) >= MAX_VARIANTS:
                         return out
             frontier = nxt

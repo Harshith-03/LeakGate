@@ -21,12 +21,15 @@ d = s.inspect(channel="search", tool="tavily.search", destination="api.tavily.co
               payload={"query": "..."}, url=None, origin="agent")       # -> Decision
 if d.action != "block":
     send(d.sent)                            # ALWAYS send d.sent, never the original payload
+                                            # (http/extract: d.sent_url is the URL that left)
 gate.on_decision(callback)                  # callback(Decision) for live UIs
 ```
 
 Layers, in order (each adds `Finding`s; timings in `Decision.layer_ms`):
-1. **destination**: host on the policy allowlist for this channel? In lockdown (private + untrusted),
-   anything not allowlisted is blocked (`not_allowlisted`).
+1. **destination**: host on the policy allowlist for this channel? Once the agent has read private
+   data, anything not allowlisted is blocked (`not_allowlisted`); before that it is only noted. In
+   lockdown (private + untrusted) hosts with `allow_in_lockdown=false` are blocked too. Agents read
+   arbitrary pages through an approved channel (Tavily extract), whose payload is scanned.
 2. **taint**: a URL whose host/params came from untrusted content (`origin="untrusted:..."` or seen in
    `mark_untrusted` text) carrying data in lockdown → `exfil_url` / `untrusted_url`.
 3. **pattern**: SSN, card (Luhn), email, phone, IBAN, API keys, private keys, JWT, passwords, IPs, DOB.

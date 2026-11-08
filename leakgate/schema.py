@@ -90,6 +90,7 @@ class Decision(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
     attempted: dict[str, list[Segment]] = Field(default_factory=dict, description="field path -> masked segments")
     sent: Optional[dict[str, Any]] = Field(None, description="exactly what left; None when blocked")
+    sent_url: Optional[str] = Field(None, description="the URL that left (http/extract), path and query included")
     rewritten_by: Optional[Literal["model", "rules"]] = None
     taint: TaintState = Field(default_factory=TaintState)
     mode: Literal["enforce", "monitor"] = "enforce"
@@ -131,6 +132,7 @@ class LedgerRecord(BaseModel):
     kinds: list[str] = Field(default_factory=list)
     attempted_hmac: str = Field(description="HMAC-SHA256 (install key) of the canonical attempted payload")
     sent: Optional[dict[str, Any]] = Field(None, description="the payload that actually left (clean by construction)")
+    sent_url: Optional[str] = Field(None, description="the URL that actually left, if any")
     sent_sha256: Optional[str] = None
     findings: int = 0
     prev_hash: str = ""
