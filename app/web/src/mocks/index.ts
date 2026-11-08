@@ -1,18 +1,19 @@
 /**
  * In-browser stand-in for the LeakGate HTTP API (CONTRACTS.md §2). Loaded lazily by api/client.ts
  * only when the real API is unreachable. Sessions release their scripted events over time, every
- * egress decision is appended to a hash-linked demo ledger, and the Playground runs a small
+ * egress decision is appended to a hash-linked demo ledger, and the Inspector runs a small
  * rule-based inspector. All state lives in this tab and resets on reload.
  */
 import { ApiError, DEMO_SESSION_PREFIX } from "../api/client";
+import { CUSTOM_SCENARIO, PROMPT_MAX } from "../api/types";
 import type {
   AgentEvent, CreateSessionRequest, Decision, InspectRequest, LedgerRecord, LedgerStatus, RunMode, SessionInfo,
   Status, TaintState,
 } from "../api/types";
-import { BENCH, MODEL, POLICY, SCENARIOS, VAULT } from "./data";
+import { BENCH, MODEL, POLICY, PRESETS, SCENARIOS, VAULT } from "./data";
 import { hex64 } from "./hash";
 import { inspect } from "./inspector";
-import { SCRIPTS, type Step } from "./scenarios";
+import { SCRIPTS, custom, type Step } from "./scenarios";
 
 // ---------------------------------------------------------------- ledger
 
@@ -85,11 +86,11 @@ function rid() {
   return `r-${Date.now().toString(36)}-${counter}`;
 }
 
-function newSession(scenario: string, mode: RunMode, startedAt = Date.now()): MockSession {
-  const make = SCRIPTS[scenario];
-  if (!make) throw new ApiError("not_found", `Unknown scenario "${scenario}".`, 404);
-  const steps = make();
-  if (mode === "live") {
+function newSession(scenario: string, mode: RunMode, startedAt = Date.now(), prompt?: string, plantPoison = false): MockSession {
+  const scripted = scenario !== CUSTOM_SCENARIO;
+  if (scripted && !(scenario in SCRIPTS)) throw new ApiError("not_found", `Unknown scenario "${scenario}".`, 404);
+  const steps: Step[] = scripted ? SCRIPTS[scenario]() : custom(prompt ?? "", plantPoison);
+  if (mode === "live" && scripted) {
     // Fixtures can't drive a live agent: say so in the run itself, then replay the script.
     steps.splice(1, 0, {
       at: 300, type: "info", title: "Demo data: replaying the scripted run",
@@ -192,8 +193,17 @@ export async function mockRequest(method: string, path: string, body?: unknown):
 
   if (method === "GET" && p === "/api/status") return status();
   if (method === "GET" && p === "/api/scenarios") return clone(SCENARIOS);
+  if (method === "GET" && p === "/api/presets") return clone(PRESETS);
   if (method === "POST" && p === "/api/sessions") {
     const b = (body ?? {}) as Partial<CreateSessionRequest>;
+    if (b.scenario === CUSTOM_SCENARIO) {
+      const text = (b.prompt ?? "").trim();
+      if (!text) throw new ApiError("http", "Type a prompt for the agent.", 400);
+      if ((b.prompt ?? "").length > PROMPT_MAX) throw new ApiError("http", `Keep the prompt under ${PROMPT_MAX} characters.`, 400);
+      const s = newSession(CUSTOM_SCENARIO, "live", Date.now(), text, !!b.plant_poison);
+      advance(s);
+      return clone(s.info);
+    }
     const s = newSession(b.scenario ?? "research", b.mode === "live" ? "live" : "scripted");
     advance(s);
     return clone(s.info);

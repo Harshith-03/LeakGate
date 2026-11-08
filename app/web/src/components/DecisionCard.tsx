@@ -1,118 +1,134 @@
 /**
- * The hero of the product: one egress decision. "Tried to send" renders the API's pre-masked
- * segments with every hit highlighted (hover or focus a hit for its Finding); "Actually sent"
- * renders `sent` exactly as returned. Nothing here ever sees a raw sensitive value.
+ * The hero of the product: one egress decision, shown as a CRT monitor. The LED and the phosphor
+ * colour say the action (green allowed, amber rewritten, red blocked). "Tried to send" renders the
+ * API's pre-masked segments with every hit highlighted (hover or focus a hit for its Finding);
+ * "Actually sent" renders `sent` / `sent_url` exactly as returned. Nothing here ever sees a raw value.
  */
 import { motion } from "framer-motion";
-import {
-  ArrowRight, ChevronDown, Cpu, Eye, FileLock2, Hash, Lock, ShieldCheck, ShieldX, Timer, Wrench,
-} from "lucide-react";
+import { ArrowRight, ChevronDown, Cpu, Eye, FileLock2, Hash, Lock, ShieldCheck, ShieldX, Timer, Wrench } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { Decision, Finding, Segment } from "../api/types";
 import {
-  ACTION_LABEL, ENCODING_LABEL, LAYER_HINT, LAYER_LABEL, SEVERITY_LABEL, flatten, fmtMs, fmtTime, kindLabel, valueText,
+  ACTION_LABEL, CHANNEL_LABEL, ENCODING_LABEL, LAYER_HINT, LAYER_LABEL, SEVERITY_LABEL, flatten, fmtMs, fmtTime, kindLabel, valueText,
 } from "../lib/format";
-import { ActionChip, ChannelChip, KindChip, LayerChip, severityTone } from "./chips";
+import { ACTION_TONE, KindChip, LayerChip, severityTone } from "./chips";
+import { Led, Screen } from "./crt";
 import { FloatingCard, useHoverCard } from "./HoverCard";
 import { cx } from "./ui";
 
-export function DecisionCard({ decision: d, fresh = false, compact = false }: {
-  decision: Decision; fresh?: boolean; compact?: boolean;
+export function DecisionCard({ decision: d, fresh = false, compact = false, delay = 0 }: {
+  decision: Decision; fresh?: boolean; compact?: boolean; delay?: number;
 }) {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const blocked = d.action === "block";
   const monitor = d.mode === "monitor";
+  const tone = ACTION_TONE[d.action];
   const fields = Object.entries(d.attempted ?? {}).map(([f, segs]) => [f, maskForgotten(f, segs, d.findings)] as [string, Segment[]]);
   const referenced = new Set(fields.flatMap(([, segs]) => segs).map((s) => s.finding).filter((i): i is number => i !== null && i !== undefined));
   const unanchored = d.findings.map((f, i) => ({ f, i })).filter(({ i }) => !referenced.has(i));
   const kinds = [...new Set(d.findings.map((f) => f.kind))];
 
   return (
-    <motion.article
-      id={`decision-${d.request_id}`}
-      tabIndex={-1}
+    <motion.div
       layout="position"
-      initial={fresh ? { opacity: 0, y: 10, scale: blocked ? 0.985 : 1 } : false}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
-      aria-label={`${ACTION_LABEL[d.action]}: ${d.tool} to ${d.destination}`}
-      className={cx(
-        "@container min-w-0 scroll-mt-24 overflow-hidden rounded-card border bg-surface outline-none lg:scroll-mt-52 focus-visible:ring-2 focus-visible:ring-focus",
-        blocked ? "border-crit/45 shadow-sm" : "border-line shadow-xs",
-        blocked && fresh && "ring-once",
-      )}
+      initial={fresh ? { opacity: 0, y: -14 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
+      className="min-w-0"
     >
-      {blocked && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-crit/25 bg-crit-soft px-[var(--pad-card)] py-2.5">
-          <span className="inline-flex items-center gap-2 font-display text-[15px] font-semibold text-crit">
-            <ShieldX size={17} aria-hidden />
-            {monitor ? "Would have been blocked" : "Stopped before it left the machine"}
+      <article
+        id={`decision-${d.request_id}`}
+        tabIndex={-1}
+        aria-label={`${ACTION_LABEL[d.action]}: ${d.tool} to ${d.destination}`}
+        data-tone={tone.screen}
+        data-glow={blocked ? "" : undefined}
+        className={cx(
+          "crt crt-lift @container min-w-0 scroll-mt-28 outline-none focus-visible:ring-2 focus-visible:ring-focus",
+          blocked && fresh && "crt-alarm",
+        )}
+      >
+        {/* bezel title strip: LED, action, tool → destination, channel, time */}
+        <div className="crt-head flex-wrap gap-y-1.5">
+          <Led state={tone.led} size="lg" blink={blocked && fresh} label={ACTION_LABEL[d.action]} />
+          <span className={cx("glow-soft inline-flex items-center gap-1.5 text-[12.5px] font-bold uppercase tracking-[0.12em]", tone.text)}>
+            {tone.iconLg}{ACTION_LABEL[d.action]}
           </span>
-          <span className="flex flex-wrap gap-1.5">
-            {kinds.slice(0, 4).map((k) => <KindChip key={k} kind={k} tone="crit" />)}
+          <span className="flex min-w-0 flex-1 basis-[12rem] items-center gap-1.5 text-[13px]">
+            <span className="shrink-0 font-mono text-[12px] text-chrome-2">{d.tool}</span>
+            <ArrowRight size={13} className="shrink-0 text-chrome-3" aria-label="to" />
+            <span className={cx("min-w-0 break-all font-semibold", blocked ? "text-[#ffc2bb]" : "text-chrome")}>{d.destination}</span>
           </span>
-        </div>
-      )}
-      {monitor && d.action !== "allow" && (
-        <div className="flex items-start gap-2 border-b border-warn/25 bg-warn-soft px-[var(--pad-card)] py-2.5 text-support text-ink" role="note">
-          <Eye size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden />
-          <span>
-            <strong className="font-semibold">Monitor mode: logged, not enforced.</strong>{" "}
-            LeakGate would have {d.action === "block" ? "blocked" : d.action === "redact" ? "redacted" : "rewritten"} this request,
-            but the policy is in monitor mode, so the original request went out.
-          </span>
-        </div>
-      )}
-
-      <div className="p-[var(--pad-card)]">
-        {/* who → where */}
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
-          <ActionChip action={d.action} size="lg" />
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-body">
-            <span className="font-mono text-[12.5px] text-ink-2">{d.tool}</span>
-            <ArrowRight size={14} className="shrink-0 text-ink-3" aria-label="to" />
-            <span className={cx("min-w-0 break-all font-semibold", blocked ? "text-crit" : "text-ink")}>{d.destination}</span>
-          </span>
-          <ChannelChip channel={d.channel} />
-          <span className="tnum ml-auto text-caption text-ink-3">{fmtTime(d.ts)}</span>
+          <span className="crt-plate" title={`Channel: ${d.channel}`}>{CHANNEL_LABEL[d.channel] ?? d.channel}</span>
+          <time className="tnum font-mono text-[11.5px] text-chrome-3" dateTime={d.ts}>{fmtTime(d.ts)}</time>
         </div>
 
-        <p className="mt-3 text-[14.5px] leading-relaxed text-ink">{d.reason}</p>
+        <Screen powerOn delay={delay} glitch={blocked && fresh} padded={false}>
+          {blocked && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-crit/25 bg-crit-soft/80 px-[var(--pad-card)] py-2.5">
+              <span className="glow inline-flex items-center gap-2 font-display text-[15px] font-semibold text-crit">
+                <ShieldX size={17} aria-hidden />
+                {monitor ? "Would have been blocked" : "Stopped before it left the machine"}
+              </span>
+              <span className="flex flex-wrap gap-1.5">
+                {kinds.slice(0, 3).map((k) => <KindChip key={k} kind={k} tone="crit" />)}
+                {kinds.length > 3 && <span className="self-center text-caption text-ink-3">+{kinds.length - 3}</span>}
+              </span>
+            </div>
+          )}
+          {monitor && d.action !== "allow" && (
+            <div className="flex items-start gap-2 border-b border-warn/25 bg-warn-soft px-[var(--pad-card)] py-2.5 text-support text-ink" role="note">
+              <Eye size={15} className="mt-0.5 shrink-0 text-warn" aria-hidden />
+              <span>
+                <strong className="font-semibold">Monitor mode: logged, not enforced.</strong>{" "}
+                LeakGate would have {d.action === "block" ? "blocked" : d.action === "redact" ? "redacted" : "rewritten"} this request,
+                but the policy is in monitor mode, so the original request went out.
+              </span>
+            </div>
+          )}
 
-        {/* the comparison */}
-        <div className={cx("mt-4 grid gap-3", !compact && "@xl:grid-cols-2")}>
-          <Well title="Tried to send" tone={blocked ? "crit" : d.action === "allow" ? "neutral" : "warn"}>
-            <Attempted decision={d} fields={fields} />
-          </Well>
-          <Well title="Actually sent" tone={blocked ? "good" : "neutral"}>
-            <Sent decision={d} />
-          </Well>
-        </div>
+          <div className="p-[var(--pad-card)]">
+            <p className="text-[14.5px] leading-relaxed text-ink">{d.reason}</p>
 
-        {unanchored.length > 0 && (
-          <div className="mt-3">
-            <div className="mb-1.5 text-micro font-semibold uppercase tracking-[0.07em] text-ink-3">Also found</div>
-            <div className="flex flex-wrap gap-1.5">
-              {unanchored.map(({ f, i }) => <FindingPill key={i} finding={f} />)}
+            {/* the comparison */}
+            <div className={cx("mt-4 grid gap-3", !compact && "@xl:grid-cols-2")}>
+              <Well title="Tried to send" tone={blocked ? "crit" : d.action === "allow" ? "neutral" : "warn"}>
+                <Attempted decision={d} fields={fields} />
+              </Well>
+              <Well title="Actually sent" tone={blocked ? "good" : d.action === "allow" ? "good" : "neutral"}>
+                <Sent decision={d} />
+              </Well>
+            </div>
+
+            {unanchored.length > 0 && (
+              <div className="mt-3">
+                <div className="eyebrow mb-1.5 text-ink-3">Also found</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {unanchored.map(({ f, i }) => <FindingPill key={i} finding={f} />)}
+                </div>
+              </div>
+            )}
+
+            <div id={detailsId} hidden={!open}>
+              {open && <Details decision={d} />}
             </div>
           </div>
-        )}
+        </Screen>
 
-        {/* meta */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-line pt-3 text-caption text-ink-3">
+        {/* bezel footer: how it was decided, and the way into the details and the ledger */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-2 pb-0.5 pt-2.5 text-caption text-chrome-2">
           {d.rewritten_by && (
-            <span className="inline-flex items-center gap-1.5 font-medium text-ink-2">
-              {d.rewritten_by === "model" ? <Cpu size={13} className="text-brand" /> : <Wrench size={13} className="text-ink-3" />}
+            <span className="inline-flex items-center gap-1.5 font-medium text-chrome">
+              {d.rewritten_by === "model" ? <Cpu size={13} className="text-brand" /> : <Wrench size={13} className="text-chrome-3" />}
               {d.action === "redact" ? "Redacted" : "Rewritten"} {d.rewritten_by === "model" ? "by local model" : "by rules"}
             </span>
           )}
           <span className="tnum inline-flex items-center gap-1.5" title="Total inspection time">
-            <Timer size={13} /> {fmtMs(d.latency_ms)}
+            <Timer size={13} className="text-chrome-3" /> {fmtMs(d.latency_ms)}
           </span>
           {d.findings.length > 0 && (
-            <span className="inline-flex items-center gap-1.5"><FileLock2 size={13} />{d.findings.length} finding{d.findings.length === 1 ? "" : "s"}</span>
+            <span className="inline-flex items-center gap-1.5"><FileLock2 size={13} className="text-chrome-3" />{d.findings.length} finding{d.findings.length === 1 ? "" : "s"}</span>
           )}
           {d.ledger_seq !== null && d.ledger_seq !== undefined && (
             <Link to={`/ledger?seq=${d.ledger_seq}`} className="tnum inline-flex items-center gap-1 rounded-md font-medium text-brand hover:text-brand-hover">
@@ -124,18 +140,14 @@ export function DecisionCard({ decision: d, fresh = false, compact = false }: {
             onClick={() => setOpen((o) => !o)}
             aria-expanded={open}
             aria-controls={detailsId}
-            className="press ml-auto inline-flex h-7 items-center gap-1 rounded-full px-2.5 font-medium text-ink-2 hover:bg-surface-3 hover:text-ink"
+            className="key key-flat ml-auto h-7 gap-1 rounded-md px-2.5 text-[12px] font-medium text-chrome"
           >
             Details
             <ChevronDown size={14} className={cx("transition-transform motion-reduce:transition-none", open && "rotate-180")} />
           </button>
         </div>
-
-        <div id={detailsId} hidden={!open}>
-          {open && <Details decision={d} />}
-        </div>
-      </div>
-    </motion.article>
+      </article>
+    </motion.div>
   );
 }
 
@@ -143,10 +155,11 @@ export function DecisionCard({ decision: d, fresh = false, compact = false }: {
 
 function Well({ title, tone, children }: { title: string; tone: "neutral" | "warn" | "crit" | "good"; children: ReactNode }) {
   const bar = { neutral: "bg-line-strong", warn: "bg-warn", crit: "bg-crit", good: "bg-good" }[tone];
+  const glow = { neutral: undefined, warn: "var(--warn)", crit: "var(--crit)", good: "var(--good)" }[tone];
   return (
-    <section className="relative min-w-0 overflow-hidden rounded-panel border border-line bg-surface-2 py-3 pl-4 pr-3.5">
-      <span aria-hidden className={cx("absolute inset-y-0 left-0 w-[3px]", bar)} />
-      <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.07em] text-ink-3">{title}</h3>
+    <section className="well py-3 pl-4 pr-3.5">
+      <span aria-hidden className={cx("absolute inset-y-2 left-0 w-[3px] rounded-full", bar)} style={glow ? { boxShadow: `0 0 10px ${glow}` } : undefined} />
+      <h3 className="eyebrow mb-2 text-ink-3">{title}</h3>
       {children}
     </section>
   );
@@ -236,7 +249,7 @@ function Attempted({ decision: d, fields }: { decision: Decision; fields: [strin
       {fields.filter(([f]) => major.has(f)).map(([field, segs]) => (
         <div key={field} className="min-w-0">
           <FieldLabel>{field}</FieldLabel>
-          <p className="break-words text-[13.5px] leading-[1.75] text-ink-2 [overflow-wrap:anywhere]">
+          <p className="break-words font-mono text-[12.5px] leading-[1.8] text-ink-2 [overflow-wrap:anywhere]">
             {segs.map((s, i) => <SegmentView key={i} seg={s} findings={d.findings} />)}
           </p>
         </div>
@@ -255,16 +268,17 @@ function SegmentView({ seg, findings }: { seg: Segment; findings: Finding[] }) {
 function Hit({ text, finding: f }: { text: string; finding: Finding }) {
   const { open, pos, width, triggerProps } = useHoverCard<HTMLElement>(310);
   const tone = severityTone(f.severity);
-  const c = tone === "crit" ? "var(--crit)" : "var(--warn)";
+  const c = tone === "crit" ? "var(--crit-rgb)" : "var(--warn-rgb)";
   return (
     <>
       <mark
         {...triggerProps}
         tabIndex={0}
-        className="cursor-help rounded-[5px] px-1 py-px font-medium text-ink outline-none [box-decoration-break:clone] focus-visible:ring-2 focus-visible:ring-focus"
+        className="cursor-help rounded-[4px] px-1 py-px font-medium text-ink outline-none [box-decoration-break:clone] focus-visible:ring-2 focus-visible:ring-focus"
         style={{
-          background: `color-mix(in srgb, ${c} 16%, transparent)`,
-          boxShadow: `inset 0 -2px 0 ${c}`,
+          background: `rgb(${c} / 0.2)`,
+          boxShadow: `inset 0 -2px 0 rgb(${c}), 0 0 12px -2px rgb(${c} / 0.45)`,
+          textShadow: `0 0 8px rgb(${c} / 0.55)`,
         }}
       >
         {text}
@@ -286,7 +300,7 @@ export function FindingDetail({ finding: f }: { finding: Finding }) {
         <KindChip kind={f.kind} tone={severityTone(f.severity)} />
         <LayerChip layer={f.layer} />
         {f.encoding !== "plain" && (
-          <span className="inline-flex h-6 items-center rounded-full bg-info-soft px-2.5 text-caption font-medium text-info">{ENCODING_LABEL[f.encoding]}</span>
+          <span className="inline-flex h-6 items-center rounded-chip bg-info-soft px-2 text-caption font-medium text-info ring-1 ring-inset ring-info/35">{ENCODING_LABEL[f.encoding]}</span>
         )}
       </div>
       <p className="mt-2.5 text-support leading-snug text-ink">{f.explanation}</p>
@@ -309,8 +323,8 @@ function FindingPill({ finding: f }: { finding: Finding }) {
         type="button"
         {...triggerProps}
         className={cx(
-          "press inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-caption font-medium",
-          tone === "crit" ? "border-crit/30 bg-crit-soft text-crit" : "border-warn/30 bg-warn-soft text-warn",
+          "press inline-flex h-7 items-center gap-1.5 rounded-chip border px-2.5 text-caption font-medium",
+          tone === "crit" ? "border-crit/35 bg-crit-soft text-crit" : "border-warn/35 bg-warn-soft text-warn",
         )}
       >
         {kindLabel(f.kind)}
@@ -330,11 +344,12 @@ function Sent({ decision: d }: { decision: Decision }) {
     }
     return (
       <div className="flex items-start gap-2.5">
-        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-good-soft text-good" aria-hidden>
+        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-good-soft text-good ring-1 ring-inset ring-good/40"
+          style={{ boxShadow: "0 0 16px -2px rgb(var(--good-rgb) / 0.6)" }} aria-hidden>
           <ShieldCheck size={15} />
         </span>
         <div>
-          <p className="font-display text-[15px] font-semibold text-ink">Nothing left the machine</p>
+          <p className="glow font-display text-[15px] font-semibold text-good">Nothing left the machine</p>
           <p className="mt-0.5 text-support text-ink-3">The agent got an error instead of a response. The attempt is in the ledger as keyed hashes only.</p>
         </div>
       </div>
@@ -354,7 +369,7 @@ function Sent({ decision: d }: { decision: Decision }) {
       {text.map(([k, v]) => (
         <div key={k} className="min-w-0">
           <FieldLabel>{k}</FieldLabel>
-          <p className="break-words text-[13.5px] leading-[1.75] text-ink [overflow-wrap:anywhere]">{valueText(v)}</p>
+          <p className="break-words font-mono text-[12.5px] leading-[1.8] text-ink [overflow-wrap:anywhere]">{valueText(v)}</p>
         </div>
       ))}
       <MinorLine items={minor} />
@@ -385,9 +400,9 @@ function Details({ decision: d }: { decision: Decision }) {
   const keys = [...TIMING_ORDER.filter((k) => k in lm), ...Object.keys(lm).filter((k) => !TIMING_ORDER.includes(k))];
   const max = Math.max(...keys.map((k) => lm[k] ?? 0), 0.0001);
   return (
-    <div className="mt-4 grid gap-5 @xl:grid-cols-2">
+    <div className="mt-4 grid gap-5 border-t border-line pt-4 @xl:grid-cols-2">
       <section>
-        <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.07em] text-ink-3">Time per layer</h3>
+        <h3 className="eyebrow mb-2 text-ink-3">Time per layer</h3>
         {keys.length === 0 ? (
           <p className="text-support text-ink-3">No per-layer timing reported.</p>
         ) : (
@@ -400,48 +415,45 @@ function Details({ decision: d }: { decision: Decision }) {
                   title={TIMING_HINT[k] ?? LAYER_HINT[k as keyof typeof LAYER_HINT] ?? undefined}>
                   <span className="truncate text-ink-2">{label}</span>
                   <span className="h-1.5 overflow-hidden rounded-full bg-surface-3" aria-hidden>
-                    <span className="block h-full rounded-full bg-brand" style={{ width: `${Math.max(1.5, (v / max) * 100)}%` }} />
+                    <span className="block h-full rounded-full bg-brand" style={{ width: `${Math.max(1.5, (v / max) * 100)}%`, boxShadow: "0 0 8px var(--brand)" }} />
                   </span>
-                  <span className="tnum w-16 text-right text-ink">{fmtMs(v)}</span>
+                  <span className="tnum w-16 text-right font-mono text-[11.5px] text-ink">{fmtMs(v)}</span>
                 </li>
               );
             })}
             <li className="grid grid-cols-[minmax(0,11rem)_1fr_auto] gap-2.5 border-t border-line pt-1.5 text-caption">
-              <span className="font-medium text-ink">Total</span><span /><span className="tnum w-16 text-right font-medium text-ink">{fmtMs(d.latency_ms)}</span>
+              <span className="font-medium text-ink">Total</span><span /><span className="tnum w-16 text-right font-mono text-[11.5px] font-medium text-ink">{fmtMs(d.latency_ms)}</span>
             </li>
           </ul>
         )}
       </section>
       <section>
-        <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.07em] text-ink-3">Session state at this call</h3>
+        <h3 className="eyebrow mb-2 text-ink-3">Session state at this call</h3>
         <ul className="space-y-1.5 text-caption text-ink-2">
           <li className="flex items-start gap-2">
-            <Dot on={d.taint.private} /> <span>Private data read{d.taint.private_sources.length ? `: ${d.taint.private_sources.join(", ")}` : ""}</span>
+            <Led state={d.taint.private ? "warn" : "off"} size="sm" className="mt-1" />
+            <span>Private data read{d.taint.private_sources.length ? `: ${d.taint.private_sources.join(", ")}` : ""}</span>
           </li>
           <li className="flex items-start gap-2">
-            <Dot on={d.taint.untrusted} />
+            <Led state={d.taint.untrusted ? "warn" : "off"} size="sm" className="mt-1" />
             <span>Untrusted web content read{d.taint.untrusted_sources.length ? ` (${d.taint.untrusted_sources.length} page${d.taint.untrusted_sources.length === 1 ? "" : "s"})` : ""}</span>
           </li>
           <li className="flex items-center gap-2 font-medium text-ink">
-            <Lock size={12} className={d.taint.lockdown ? "text-brand" : "text-ink-3"} /> {d.taint.lockdown ? "Lockdown was on" : "No lockdown"}
+            <Lock size={12} className={d.taint.lockdown ? "text-crit" : "text-ink-3"} /> {d.taint.lockdown ? "Lockdown was on" : "No lockdown"}
           </li>
         </ul>
         <div className="mt-3 font-mono text-[11px] text-ink-3 [overflow-wrap:anywhere]">request {d.request_id} · session {d.session_id}</div>
       </section>
       {d.findings.length > 0 && (
         <section className="@xl:col-span-2">
-          <h3 className="mb-2 text-micro font-semibold uppercase tracking-[0.07em] text-ink-3">All findings, in layer order</h3>
+          <h3 className="eyebrow mb-2 text-ink-3">All findings, in layer order</h3>
           <ol className="space-y-2">
             {d.findings.map((f, i) => (
-              <li key={i} className="rounded-control border border-line bg-surface-2 p-3"><FindingDetail finding={f} /></li>
+              <li key={i} className="well p-3"><FindingDetail finding={f} /></li>
             ))}
           </ol>
         </section>
       )}
     </div>
   );
-}
-
-function Dot({ on }: { on: boolean }) {
-  return <span aria-hidden className={cx("mt-1 h-2 w-2 shrink-0 rounded-full", on ? "bg-warn" : "border border-line-strong")} />;
 }

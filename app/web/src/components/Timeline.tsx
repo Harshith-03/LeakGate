@@ -1,23 +1,28 @@
-import {
-  AlertTriangle, ArrowUpRight, CheckCircle2, ClipboardList, ExternalLink, FileText, Globe, Info, Lock, MessageCircle,
-  Network, Wrench, FileLock2,
-} from "lucide-react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+/**
+ * What the agent is doing, as a compact terminal log: one line per event with a type tag, the
+ * title, an optional detail (clamped, expandable) and the moments the session's taint changed.
+ * Egress lines carry the gate's verdict and jump to the matching decision monitor.
+ */
+import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { AgentEvent, EventType, TaintState } from "../api/types";
-import { fmtTime, hostOf } from "../lib/format";
-import { ActionChip } from "./chips";
+import { ACTION_LABEL, fmtTime, hostOf } from "../lib/format";
+import { ACTION_TONE } from "./chips";
 import { cx } from "./ui";
 
-const ICON: Record<EventType, { icon: ReactNode; tone: string; label: string }> = {
-  task: { icon: <ClipboardList size={15} />, tone: "bg-brand-tint text-brand", label: "Task" },
-  thought: { icon: <MessageCircle size={15} />, tone: "bg-surface-3 text-ink-2", label: "Agent thought" },
-  tool_call: { icon: <Wrench size={15} />, tone: "bg-surface-3 text-ink-2", label: "Tool call" },
-  tool_result: { icon: <FileText size={15} />, tone: "bg-surface-3 text-ink-2", label: "Tool result" },
-  egress: { icon: <ArrowUpRight size={15} />, tone: "bg-info-soft text-info", label: "Outbound request" },
-  answer: { icon: <CheckCircle2 size={15} />, tone: "bg-good-soft text-good", label: "Answer" },
-  error: { icon: <AlertTriangle size={15} />, tone: "bg-crit-soft text-crit", label: "Error" },
-  info: { icon: <Info size={15} />, tone: "bg-surface-3 text-ink-2", label: "Note" },
+const TAG: Record<EventType, { label: string; cls: string; sr: string }> = {
+  task: { label: "Task", cls: "text-brand ring-brand/40 bg-brand-tint", sr: "Task" },
+  thought: { label: "Think", cls: "text-ink-3 ring-line-strong bg-transparent", sr: "Agent thought" },
+  tool_call: { label: "Call", cls: "text-ink-2 ring-line-strong bg-surface-3/60", sr: "Tool call" },
+  tool_result: { label: "Result", cls: "text-ink-2 ring-line-strong bg-surface-3/60", sr: "Tool result" },
+  egress: { label: "Egress", cls: "text-info ring-info/40 bg-info-soft", sr: "Outbound request" },
+  answer: { label: "Answer", cls: "text-good ring-good/45 bg-good-soft", sr: "Answer" },
+  error: { label: "Error", cls: "text-crit ring-crit/45 bg-crit-soft", sr: "Error" },
+  info: { label: "Note", cls: "text-info ring-info/35 bg-transparent", sr: "Note" },
 };
+const GUARD = { label: "Guard", cls: "text-crit ring-crit/45 bg-crit-soft", sr: "Socket guard" };
+/** The live agent attaches this explainer to every tool call; it lives in the tag's tooltip instead. */
+const BOILERPLATE = /^The agent's own tool call\./;
 
 /** Scroll to an egress card in the feed and move focus there, so keyboard users land on it too. */
 export function revealDecision(requestId: string) {
@@ -28,7 +33,14 @@ export function revealDecision(requestId: string) {
   el.focus({ preventScroll: true });
 }
 
-export function Timeline({ events, running }: { events: AgentEvent[]; running: boolean }) {
+/**
+ * `fitBottom`: on wide screens, cap the log's height so it ends `fitBottom` px above the bottom of the
+ * viewport wherever the monitor sits (it grows as the page scrolls and the monitor sticks), so the
+ * newest line is always on screen.
+ */
+export function Timeline({ events, running, className, fitBottom }: {
+  events: AgentEvent[]; running: boolean; className?: string; fitBottom?: number;
+}) {
   const box = useRef<HTMLOListElement>(null);
   const stick = useRef(true);
 
@@ -36,7 +48,36 @@ export function Timeline({ events, running }: { events: AgentEvent[]; running: b
   useEffect(() => {
     const el = box.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
-  }, [events.length]);
+  }, [events.length, running]);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el || fitBottom === undefined) return;
+    const wide = window.matchMedia("(min-width: 1024px)");
+    let raf = 0;
+    const fit = () => {
+      raf = 0;
+      if (!wide.matches) { el.style.maxHeight = ""; return; }
+      const top = Math.max(0, el.getBoundingClientRect().top);
+      el.style.maxHeight = `${Math.max(300, Math.round(window.innerHeight - top - fitBottom))}px`;
+      if (stick.current) el.scrollTop = el.scrollHeight;
+    };
+    const queue = () => { if (!raf) raf = requestAnimationFrame(fit); };
+    fit();
+    // the monitor moves without a scroll when something above it changes size (e.g. guided demos fold out)
+    const ro = new ResizeObserver(queue);
+    ro.observe(document.body);
+    window.addEventListener("scroll", queue, { passive: true });
+    window.addEventListener("resize", queue);
+    wide.addEventListener("change", queue);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("scroll", queue);
+      window.removeEventListener("resize", queue);
+      wide.removeEventListener("change", queue);
+    };
+  }, [fitBottom]);
 
   return (
     <ol
@@ -44,53 +85,88 @@ export function Timeline({ events, running }: { events: AgentEvent[]; running: b
       onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; }}
       aria-label="Agent timeline"
       aria-live="polite"
-      className="scroll-thin max-h-[26rem] space-y-0 overflow-y-auto pr-1 lg:max-h-[calc(100vh-15rem)] lg:pr-2"
+      className={cx("scroll-thin overflow-y-auto pr-1", className)}
     >
       {events.map((e, i) => (
-        <EventRow key={e.seq} event={e} prev={events[i - 1]?.taint} last={i === events.length - 1 && !running} />
+        <EventRow key={e.seq} event={e} prev={events[i - 1]?.taint} />
       ))}
       {running && (
-        <li className="relative flex items-center gap-3 pb-1 pl-0 pt-1 text-support text-ink-3">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center" aria-hidden>
-            <span className="live-dot h-2 w-2 rounded-full bg-brand" />
-          </span>
-          Agent is working…
+        <li className="flex items-center gap-2 py-2 pl-[4.9rem] font-mono text-[12px] text-ink-3 max-sm:pl-0">
+          <span className="text-brand">▸</span> agent is working<span className="cursor-block" aria-hidden />
         </li>
       )}
     </ol>
   );
 }
 
-const SOCKET_GUARD = { icon: <Network size={15} />, tone: "bg-crit-soft text-crit", label: "Socket guard" };
-
-function EventRow({ event: e, prev, last }: { event: AgentEvent; prev?: TaintState; last: boolean }) {
-  // The socket guard (a backstop below the SDK) reports through info events; give them the "stopped" look.
-  const meta = e.type === "info" && /socket guard/i.test(e.title) ? SOCKET_GUARD : ICON[e.type] ?? ICON.info;
+function EventRow({ event: e, prev }: { event: AgentEvent; prev?: TaintState }) {
+  const guard = e.type === "info" && /socket guard/i.test(e.title);
+  const tag = guard ? GUARD : TAG[e.type] ?? TAG.info;
   const turnedPrivate = e.taint?.private && !prev?.private;
   const turnedUntrusted = e.taint?.untrusted && !prev?.untrusted;
   const lockdownNow = (e.taint?.lockdown ?? (e.taint?.private && e.taint?.untrusted)) && !(prev?.lockdown ?? (prev?.private && prev?.untrusted));
-  return (
-    <li className="relative flex gap-3 pb-4">
-      {!last && <span aria-hidden className="absolute bottom-0 left-4 top-9 w-px bg-line" />}
-      <span className={cx("relative inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full", meta.tone)} aria-hidden>{meta.icon}</span>
-      <div className="min-w-0 flex-1 pt-1">
+  const compromised = e.type === "thought" && /^\(compromised\)/i.test(e.title);
+  const d = e.decision;
+  const detail = e.detail && !BOILERPLATE.test(e.detail) ? e.detail : null;
+
+  if (e.type === "task") {
+    return (
+      <li className="mb-2 border-b border-line pb-3">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="min-w-0 text-[13.5px] font-medium leading-snug text-ink">
-            <span className="sr-only">{meta.label}: </span>
-            {e.type === "egress" && e.decision ? <EgressLine event={e} /> : e.title}
-          </div>
-          <time className="tnum shrink-0 text-micro text-ink-3" dateTime={e.ts}>{fmtTime(e.ts)}</time>
+          <span className="eyebrow text-brand"><span className="sr-only">{tag.sr}: </span>Prompt</span>
+          <time className="tnum hidden font-mono text-[11px] text-ink-3 sm:block" dateTime={e.ts}>{fmtTime(e.ts)}</time>
         </div>
-        {e.detail && e.type !== "egress" && (e.type === "answer" ? <Answer event={e} /> : <Detail text={e.detail} />)}
-        {(turnedPrivate || turnedUntrusted || lockdownNow) && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {turnedPrivate && <TaintTag icon={<FileLock2 size={12} />}>Private data read</TaintTag>}
-            {turnedUntrusted && <TaintTag icon={<Globe size={12} />}>Untrusted web content read</TaintTag>}
-            {lockdownNow && (
-              <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-hero px-2.5 text-caption font-semibold text-on-hero">
-                <Lock size={12} aria-hidden /> Lockdown on
+        <p className="glow-soft mt-1.5 break-words font-mono text-[13px] leading-relaxed text-brand [overflow-wrap:anywhere]">
+          <span aria-hidden className="mr-1.5 text-brand/70">&gt;</span>{e.title}
+        </p>
+        {detail && <p className="mt-1 text-caption text-ink-3">{detail}</p>}
+      </li>
+    );
+  }
+
+  return (
+    <li className="grid grid-cols-[4.4rem_minmax(0,1fr)] gap-x-2.5 py-[7px] max-sm:grid-cols-1 max-sm:gap-y-1">
+      <span className="pt-px">
+        {e.type === "egress" && d ? (
+          <span className={cx("inline-flex h-[19px] w-full items-center justify-center rounded-[4px] font-mono text-[9.5px] font-bold uppercase tracking-[0.08em] ring-1 ring-inset max-sm:w-auto max-sm:px-1.5", ACTION_TONE[d.action].chip)}>
+            {ACTION_LABEL[d.action]}
+          </span>
+        ) : (
+          <span title={e.type === "tool_call" && e.detail ? e.detail : undefined}
+            className={cx("inline-flex h-[19px] w-full items-center justify-center rounded-[4px] font-mono text-[9.5px] font-bold uppercase tracking-[0.1em] ring-1 ring-inset max-sm:w-auto max-sm:px-1.5", compromised ? "bg-crit-soft text-crit ring-crit/45" : tag.cls)}>
+            {tag.label}
+          </span>
+        )}
+        <span className="sr-only">{tag.sr}: </span>
+      </span>
+      <div className="min-w-0">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className={cx(
+            "min-w-0 break-words text-[13px] leading-snug [overflow-wrap:anywhere]",
+            e.type === "tool_call" ? "font-mono text-[12.5px] text-ink" : e.type === "thought" ? (compromised ? "text-[#ffb9b1]" : "text-ink-2") : e.type === "error" ? "font-medium text-crit" : "font-medium text-ink",
+          )}>
+            {e.type === "egress" && d ? (
+              <span className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span className="font-mono text-[12.5px]">{e.title || d.tool}</span>
+                <span className="break-all text-caption font-normal text-ink-3">→ {d.destination}</span>
+                <button
+                  type="button"
+                  onClick={() => revealDecision(d.request_id)}
+                  className="press inline-flex h-5 items-center gap-0.5 rounded px-1 text-caption font-medium text-brand hover:bg-brand-tint"
+                >
+                  View<ArrowUpRight size={12} aria-hidden />
+                </button>
               </span>
-            )}
+            ) : e.title}
+          </div>
+          <time className="tnum hidden shrink-0 font-mono text-[11px] text-ink-3 sm:block" dateTime={e.ts}>{fmtTime(e.ts)}</time>
+        </div>
+        {detail && e.type !== "egress" && (e.type === "answer" ? <Answer event={e} /> : <Detail text={detail} />)}
+        {(turnedPrivate || turnedUntrusted || lockdownNow) && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {turnedPrivate && <TaintTag tone="warn">Private data read</TaintTag>}
+            {turnedUntrusted && <TaintTag tone="warn">Web content read</TaintTag>}
+            {lockdownNow && <TaintTag tone="crit">Lockdown on</TaintTag>}
           </div>
         )}
       </div>
@@ -98,38 +174,24 @@ function EventRow({ event: e, prev, last }: { event: AgentEvent; prev?: TaintSta
   );
 }
 
-function EgressLine({ event: e }: { event: AgentEvent }) {
-  const d = e.decision!;
+function TaintTag({ tone, children }: { tone: "warn" | "crit"; children: string }) {
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <ActionChip action={d.action} />
-      <span className="min-w-0">{e.title || d.destination}</span>
-      {e.title && <span className="min-w-0 break-all text-caption font-normal text-ink-3">→ {d.destination}</span>}
-      <button
-        type="button"
-        onClick={() => revealDecision(d.request_id)}
-        className="press inline-flex h-6 items-center gap-1 rounded-full px-2 text-caption font-medium text-brand hover:bg-brand-tint"
-      >
-        View card <ArrowUpRight size={12} aria-hidden />
-      </button>
-    </span>
-  );
-}
-
-function TaintTag({ icon, children }: { icon: ReactNode; children: ReactNode }) {
-  return (
-    <span className="inline-flex h-6 items-center gap-1.5 rounded-full bg-warn-soft px-2.5 text-caption font-medium text-warn">
-      <span aria-hidden>{icon}</span>{children}
+    <span className={cx(
+      "glow-soft inline-flex h-5 items-center gap-1.5 rounded-[4px] px-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset",
+      tone === "crit" ? "bg-crit-soft text-crit ring-crit/45" : "bg-warn-soft text-warn ring-warn/40",
+    )}>
+      <span aria-hidden className={cx("h-1.5 w-1.5 rounded-full", tone === "crit" ? "bg-crit" : "bg-warn")} style={{ boxShadow: "0 0 6px currentColor" }} />
+      {children}
     </span>
   );
 }
 
 function Detail({ text }: { text: string }) {
-  const long = text.length > 240;
+  const long = text.length > 200 || text.split("\n").length > 3;
   const [open, setOpen] = useState(false);
   return (
-    <div className="mt-1">
-      <p className={cx("whitespace-pre-line break-words text-support text-ink-3 [overflow-wrap:anywhere]", long && !open && "line-clamp-3")}>{text}</p>
+    <div className="mt-0.5">
+      <p className={cx("whitespace-pre-line break-words text-support text-ink-3 [overflow-wrap:anywhere]", long && !open && "line-clamp-2")}>{text}</p>
       {long && (
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
           className="mt-0.5 rounded-md text-caption font-medium text-brand hover:text-brand-hover">
@@ -142,15 +204,16 @@ function Detail({ text }: { text: string }) {
 
 function Answer({ event: e }: { event: AgentEvent }) {
   return (
-    <div className="mt-2 rounded-panel bg-brand-tint px-4 py-3">
+    <div className="well mt-2 py-3 pl-4 pr-3.5">
+      <span aria-hidden className="absolute inset-y-2 left-0 w-[3px] rounded-full bg-good" style={{ boxShadow: "0 0 10px var(--good)" }} />
       <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink">{e.detail}</p>
       {e.citations?.length > 0 && (
-        <div className="mt-3 border-t border-brand/15 pt-2.5">
-          <div className="mb-1 text-micro font-semibold uppercase tracking-[0.07em] text-ink-3">Sources</div>
+        <div className="mt-3 border-t border-line pt-2.5">
+          <div className="eyebrow mb-1 text-ink-3">Sources</div>
           <ol className="space-y-1">
             {e.citations.map((c, i) => (
               <li key={i} className="flex min-w-0 items-baseline gap-2 text-caption">
-                <span className="tnum shrink-0 text-ink-3">[{i + 1}]</span>
+                <span className="tnum shrink-0 font-mono text-ink-3">[{i + 1}]</span>
                 <a href={c.url} target="_blank" rel="noopener noreferrer"
                   className="group inline-flex min-w-0 items-baseline gap-1 rounded-md text-ink-2 hover:text-brand">
                   <span className="min-w-0">{c.title}</span>

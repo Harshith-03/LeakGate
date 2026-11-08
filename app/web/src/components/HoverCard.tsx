@@ -61,8 +61,10 @@ export function FloatingCard({ open, pos, width, children }: {
   return createPortal(
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed z-[80] rounded-panel border border-line bg-surface p-3.5 text-left text-support text-ink-2 shadow-lg"
+      className="pointer-events-none fixed z-[80] rounded-panel border border-line-strong p-3.5 text-left text-support text-ink-2 shadow-lg"
       style={{
+        background: "linear-gradient(180deg, rgb(14 26 20 / 0.97), rgb(6 12 9 / 0.97))",
+        backdropFilter: "blur(8px)",
         top: pos.top, left: pos.left, width: `min(${width}px, calc(100vw - 16px))`,
         transform: pos.above ? "translateY(-100%)" : undefined,
       }}

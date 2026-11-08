@@ -1,11 +1,13 @@
-import { FileLock2, Globe, Lock, Loader2, Send, TestTubeDiagonal } from "lucide-react";
-import { useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { FileLock2, Globe, Lock, Loader2, Microscope, Send } from "lucide-react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { api, ApiError } from "../api/client";
 import type { Channel, Decision, InspectRequest } from "../api/types";
 import { CHANNELS } from "../api/types";
 import { useApi } from "../api/useApi";
+import { ACTION_TONE } from "../components/chips";
+import { Led, Monitor, ToggleSwitch } from "../components/crt";
 import { DecisionCard } from "../components/DecisionCard";
-import { EmptyState, ErrorState, Field, Note, PageHeader, Panel, PanelTitle, Segmented, Select, TextInput, buttonClass, cx } from "../components/ui";
+import { EmptyState, ErrorState, Field, Note, PageHeader, Segmented, Select, TextInput, buttonClass, cx } from "../components/ui";
 import { CHANNEL_LABEL } from "../lib/format";
 
 type PayloadMode = "query" | "json";
@@ -76,7 +78,7 @@ const UNKNOWN_HOSTS = ["claims-verify.net", "webhook.site"];
 const TOOL_SUGGESTIONS = ["tavily.search", "tavily.extract", "exa.search", "http.get", "http.post", "llm.chat"];
 const OTHER = "__other__";
 
-export default function Playground() {
+export default function Inspector() {
   const policy = useApi(() => api.policy());
   const [form, setForm] = useState<FormState>(INITIAL);
   const [customHost, setCustomHost] = useState(false);
@@ -139,41 +141,43 @@ export default function Playground() {
 
   const lockdown = form.private && form.untrusted;
   const destinationValue = customHost ? OTHER : form.destination;
+  const tone = result ? ACTION_TONE[result.decision.action] : null;
 
   return (
     <>
       <PageHeader
-        eyebrow="Try it"
-        title="Playground"
+        eyebrow="One request at a time"
+        title="Inspector"
         subtitle="Craft one outbound request the way an agent would, and see what LeakGate does with it. The examples use the synthetic Northwind Mutual customer; nothing here is real."
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
-        <div className="min-w-0 space-y-4">
-          <Panel>
-            <PanelTitle hint="One click fills the form and inspects it.">Examples</PanelTitle>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              {EXAMPLES.map((ex) => (
-                <button
-                  key={ex.id}
-                  type="button"
-                  onClick={() => runExample(ex)}
-                  disabled={busy}
-                  aria-pressed={activeExample === ex.id}
-                  className={cx(
-                    "press flex min-w-0 flex-col items-start rounded-control border px-3.5 py-2.5 text-left transition-colors disabled:opacity-60",
-                    activeExample === ex.id ? "border-brand/50 bg-brand-tint" : "border-line bg-surface hover:border-line-strong hover:bg-surface-2",
-                  )}
-                >
-                  <span className="text-[13px] font-semibold text-ink">{ex.label}</span>
-                  <span className="mt-0.5 text-caption text-ink-3">{ex.hint}</span>
-                </button>
-              ))}
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start">
+        <div className="min-w-0 space-y-7">
+          <Monitor title="Examples" plate="LG-04 · Presets" led="brand" tone="brand">
+            <p className="mb-3.5 text-support text-ink-3">One press fills the form and inspects it.</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              {EXAMPLES.map((ex) => {
+                const active = activeExample === ex.id;
+                return (
+                  <button
+                    key={ex.id}
+                    type="button"
+                    onClick={() => runExample(ex)}
+                    disabled={busy}
+                    aria-pressed={active}
+                    data-down={active ? "" : undefined}
+                    className="key min-w-0 flex-col !items-start gap-0.5 !whitespace-normal rounded-[10px] px-3.5 py-2.5 text-left"
+                  >
+                    <span className={cx("text-[13px] font-semibold", active ? "text-brand" : "text-chrome")}>{ex.label}</span>
+                    <span className="text-caption font-normal text-chrome-3">{ex.hint}</span>
+                  </button>
+                );
+              })}
             </div>
-          </Panel>
+          </Monitor>
 
-          <Panel>
-            <PanelTitle hint="Exactly what would leave the machine.">Outbound request</PanelTitle>
+          <Monitor title="Outbound request" plate="LG-05 · Composer" led={busy ? "ok" : "off"} ledPulse={busy}>
+            <p className="mb-4 text-support text-ink-3">Exactly what would leave the machine.</p>
             <form onSubmit={onSubmit} className="space-y-4" noValidate>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Select<Channel>
@@ -208,12 +212,12 @@ export default function Playground() {
               </div>
 
               <Field label="URL (optional)" hint="For http calls. A host that differs from the destination is still checked.">
-                <TextInput value={form.url} onChange={(e) => set("url", e.target.value)} placeholder="https://…" spellCheck={false} className="font-mono text-[12.5px]" />
+                <TextInput value={form.url} onChange={(e) => set("url", e.target.value)} placeholder="https://…" spellCheck={false} />
               </Field>
 
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-caption font-medium text-ink-3">Payload</span>
+                  <span className="eyebrow text-ink-3">Payload</span>
                   <Segmented<PayloadMode>
                     size="sm"
                     label="Payload format"
@@ -232,7 +236,7 @@ export default function Playground() {
                     onChange={(e) => set("query", e.target.value)}
                     rows={3}
                     placeholder="What the agent wants to search for"
-                    className="w-full resize-y rounded-control border border-line-strong bg-surface px-3 py-2 text-[13.5px] text-ink outline-none placeholder:text-ink-3 hover:border-ink-3/60 focus-visible:border-brand"
+                    className="field w-full resize-y px-3 py-2 font-mono text-[13px]"
                   />
                 ) : (
                   <>
@@ -244,34 +248,27 @@ export default function Playground() {
                       onChange={(e) => set("json", e.target.value)}
                       rows={6}
                       spellCheck={false}
-                      className={cx(
-                        "w-full resize-y rounded-control border bg-surface px-3 py-2 font-mono text-[12.5px] text-ink outline-none focus-visible:border-brand",
-                        jsonError ? "border-crit" : "border-line-strong hover:border-ink-3/60",
-                      )}
+                      className="field w-full resize-y px-3 py-2 font-mono text-[12.5px]"
                     />
                     {jsonError && <p id="json-error" className="mt-1 text-caption text-crit">{jsonError}</p>}
                   </>
                 )}
               </div>
 
-              <fieldset className="space-y-2">
-                <legend className="mb-1 text-caption font-medium text-ink-3">What the agent has done in this session</legend>
-                <Toggle checked={form.private} onChange={(v) => set("private", v)} icon={<FileLock2 size={14} />}>
-                  Agent has read private data <span className="text-ink-3">(customer C-1042)</span>
-                </Toggle>
-                <Toggle checked={form.untrusted} onChange={(v) => set("untrusted", v)} icon={<Globe size={14} />}>
-                  Agent has read web content
-                </Toggle>
-                <Toggle
-                  checked={form.origin.startsWith("untrusted:")}
+              <fieldset className="well space-y-1 px-3.5 py-3">
+                <legend className="sr-only">What the agent has done in this session</legend>
+                <div className="eyebrow mb-1.5 text-ink-3" aria-hidden>Session so far</div>
+                <ToggleSwitch onScreen tone="warn" led="warn" checked={form.private} onChange={(v) => set("private", v)}
+                  label={<span className="inline-flex items-center gap-1.5"><FileLock2 size={13} className="text-ink-3" aria-hidden />Agent has read private data</span>}
+                  sub="Customer C-1042" />
+                <ToggleSwitch onScreen tone="warn" led="warn" checked={form.untrusted} onChange={(v) => set("untrusted", v)}
+                  label={<span className="inline-flex items-center gap-1.5"><Globe size={13} className="text-ink-3" aria-hidden />Agent has read web content</span>} />
+                <ToggleSwitch onScreen led="alarm" checked={form.origin.startsWith("untrusted:")}
                   onChange={(v) => set("origin", v ? `untrusted:${POISONED}` : "agent")}
-                  icon={<Globe size={14} />}
-                >
-                  This URL came from a web page
-                </Toggle>
+                  label={<span className="inline-flex items-center gap-1.5"><Globe size={13} className="text-ink-3" aria-hidden />This URL came from a web page</span>} />
                 {form.private && (
-                  <p className="flex items-start gap-1.5 pt-1 text-caption font-medium text-ink-2">
-                    <Lock size={13} className="mt-0.5 shrink-0 text-brand" aria-hidden />
+                  <p className="flex items-start gap-1.5 pt-1.5 text-caption font-medium text-ink-2">
+                    <Lock size={13} className={cx("mt-0.5 shrink-0", lockdown ? "text-crit" : "text-warn")} aria-hidden />
                     {lockdown
                       ? "Lockdown: only approved destinations, and links that came from web pages are treated as hostile."
                       : "Private data has been read, so any host off the allowlist is blocked."}
@@ -282,29 +279,33 @@ export default function Playground() {
               <button
                 type="submit"
                 disabled={busy || (form.payloadMode === "json" && !!jsonError) || !form.destination.trim()}
-                className={buttonClass("primary", "md", "w-full sm:w-auto")}
+                className={buttonClass("run", "lg", "w-full uppercase sm:w-auto")}
               >
-                {busy ? <Loader2 size={15} className="spin" /> : <Send size={15} />}
-                {busy ? "Inspecting…" : "Inspect request"}
+                {busy ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+                {busy ? "Inspecting" : "Inspect"}
               </button>
             </form>
-          </Panel>
+          </Monitor>
         </div>
 
         <div ref={resultRef} className="min-w-0 scroll-mt-28" aria-live="polite">
-          <h2 className="mb-3 font-display text-[18px] font-semibold leading-tight tracking-[-0.01em] text-ink">Decision</h2>
+          <div className="rack mb-5 flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5">
+            <Led state={tone ? tone.led : "off"} size="lg" />
+            <h2 className="crt-title text-[14px]">Decision</h2>
+            <span className="text-caption text-chrome-2">What LeakGate did with this request</span>
+          </div>
           {error ? (
             <ErrorState error={error} onRetry={() => void submit(form)} />
           ) : result ? (
             <DecisionCard key={result.key} decision={result.decision} fresh />
           ) : (
-            <EmptyState title="Pick an example or craft a request" icon={<TestTubeDiagonal size={20} />}>
-              The decision card shows what the agent tried to send, with every hit highlighted, next to what actually left.
+            <EmptyState title="Pick an example or craft a request" icon={<Microscope size={20} />}>
+              The decision monitor shows what the agent tried to send, with every hit highlighted, next to what actually left.
             </EmptyState>
           )}
           {result && (
-            <Note className="mt-4" tone="neutral">
-              Playground calls are inspected in their own session and recorded in the ledger like any other decision.
+            <Note className="mt-5" tone="neutral">
+              Inspector calls run in their own session and are recorded in the ledger like any other decision.
             </Note>
           )}
         </div>
@@ -322,22 +323,4 @@ function parsePayload(f: FormState): { payload: Record<string, unknown>; error: 
   } catch (e) {
     return { payload: {}, error: `Not valid JSON: ${e instanceof Error ? e.message : String(e)}` };
   }
-}
-
-function Toggle({ checked, onChange, children, icon }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode; icon: ReactNode }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className="press flex w-full items-center gap-3 rounded-control px-1 py-1 text-left text-[13px] text-ink hover:bg-surface-2"
-    >
-      <span aria-hidden className={cx("relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors", checked ? "bg-brand" : "bg-surface-3 ring-1 ring-inset ring-line-strong")}>
-        <span className={cx("absolute top-0.5 h-4 w-4 rounded-full bg-surface shadow-xs transition-transform motion-reduce:transition-none", checked ? "translate-x-[18px]" : "translate-x-0.5")} />
-      </span>
-      <span className={cx("shrink-0", checked ? "text-brand" : "text-ink-3")} aria-hidden>{icon}</span>
-      <span className="min-w-0">{children}</span>
-    </button>
-  );
 }

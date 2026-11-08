@@ -1,6 +1,6 @@
 /**
  * A small in-browser stand-in for POST /api/inspect, used only when the API is unreachable.
- * It mimics the layer order and the Decision shape so the Playground stays demoable offline.
+ * It mimics the layer order and the Decision shape so the Inspector stays demoable offline.
  * It is NOT the product: no keyed hashes, no local model (the "context" layer is a keyword stand-in,
  * and rewrites are rule-based removals, labelled as such).
  *

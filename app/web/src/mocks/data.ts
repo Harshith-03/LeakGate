@@ -3,7 +3,8 @@
  * Northwind Mutual story (fictional insurer, synthetic customers from agent/data/customers.json).
  * Everything here is what the API would return, so sensitive values are already masked.
  */
-import type { BenchReport, BenchSystem, Policy, ScenarioInfo, VaultSummary } from "../api/types";
+import type { BenchReport, BenchSystem, Policy, Preset, ScenarioInfo, VaultSummary } from "../api/types";
+import { DEFAULT_PRESETS } from "../lib/presets";
 
 export const POLICY: Policy = {
   name: "northwind-claims-agent",
@@ -56,6 +57,9 @@ export const SCENARIOS: ScenarioInfo[] = [
     modes: ["scripted"],
   },
 ];
+
+/** Same four suggestions as `agent/demo.py` PRESETS (served by GET /api/presets). */
+export const PRESETS: Preset[] = DEFAULT_PRESETS;
 
 export const MODEL = "qwen3:4b-instruct-2507-q4_K_M";
 

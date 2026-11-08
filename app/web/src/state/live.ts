@@ -1,10 +1,11 @@
 /**
- * The Live page's run: create a session, then poll its events every ~400 ms until it is done.
+ * The Console's run (a free-form prompt or a guided demo): create a session, then poll its events every
+ * ~400 ms until it is done.
  * Kept outside React so a run keeps streaming while you look at the Ledger and come back.
  */
 import { useSyncExternalStore } from "react";
 import { api, ApiError } from "../api/client";
-import type { AgentEvent, Decision, RunMode, SessionInfo, TaintState } from "../api/types";
+import { CUSTOM_SCENARIO, type AgentEvent, type Decision, type RunMode, type SessionInfo, type TaintState } from "../api/types";
 import { refreshStatus } from "./status";
 
 export interface LiveState {
@@ -45,7 +46,10 @@ async function poll(token: number, sessionId: string, animate: boolean) {
   while (token === runToken) {
     try {
       const after = state.events.length ? state.events[state.events.length - 1].seq : -1;
-      const [evs, info] = await Promise.all([api.events(sessionId, after), api.session(sessionId)]);
+      // Status first, then events: once the status says done, the events fetched after it are complete.
+      // (Fetching both in parallel could see "done" and miss the final answer that landed in between.)
+      const info = await api.session(sessionId);
+      const evs = await api.events(sessionId, after);
       if (token !== runToken) return;
       failures = 0;
       const seen = new Set(state.events.map((e) => e.seq));
@@ -68,17 +72,26 @@ async function poll(token: number, sessionId: string, animate: boolean) {
   }
 }
 
-export async function startRun(scenario: string, mode: RunMode) {
+/**
+ * Start a guided demo (`scenario`, `mode`) or, with `prompt`, a free-form live run. The previous run
+ * stays on screen until the API accepts the new one, so a rejected prompt (400) doesn't blank the page.
+ */
+export async function startRun(scenario: string, mode: RunMode, custom?: { prompt: string; plant_poison: boolean }) {
   const token = ++runToken;
-  set({ starting: true, error: null, session: null, events: [], fresh: new Set() });
+  set({ starting: true, running: false, error: null });
   try {
-    const session = await api.createSession({ scenario, mode });
+    const session = await api.createSession({ scenario, mode, ...custom });
     if (token !== runToken) return;
-    set({ session, starting: false });
+    set({ session, events: [], fresh: new Set(), starting: false });
     void poll(token, session.session_id, true);
   } catch (e) {
     if (token === runToken) set({ starting: false, error: msg(e) });
   }
+}
+
+/** Run whatever the user typed: a LangGraph agent on the local model, behind the gate (live only). */
+export function startPrompt(prompt: string, plantPoison: boolean) {
+  return startRun(CUSTOM_SCENARIO, "live", { prompt, plant_poison: plantPoison });
 }
 
 /** On first visit, show the newest run (if any) so a refresh mid-demo doesn't blank the screen. */
