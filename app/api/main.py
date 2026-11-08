@@ -140,8 +140,16 @@ def scenarios() -> list[ScenarioInfo]:
 
 
 class SessionBody(BaseModel):
-    scenario: str
+    scenario: str                                   # a scenario name, or "custom" with a prompt
     mode: Literal["scripted", "live"] = "scripted"
+    prompt: Optional[str] = None                    # custom only: what the user typed (max 2000 chars)
+    plant_poison: bool = False                      # custom only: append the red-team page to search results
+
+
+@app.get("/api/presets")
+def presets() -> list[dict]:
+    """Suggested prompts for the prompt box (custom sessions)."""
+    return demo.PRESETS
 
 
 def _emitter(sid: str, s: Session):
@@ -163,12 +171,12 @@ def _emitter(sid: str, s: Session):
     return emit
 
 
-def _run(sid: str, scenario: str, mode: str) -> None:
+def _run(sid: str, scenario: str, mode: str, prompt: Optional[str] = None, plant_poison: bool = False) -> None:
     g = gate()
     s = g.session(sid)
     emit = _emitter(sid, s)
     try:
-        demo.run(scenario, mode, g, s, emit)
+        demo.run(scenario, mode, g, s, emit, prompt=prompt, plant_poison=plant_poison)
         RUNS[sid]["info"].status = "done"
     except Exception as e:                                     # never a stack trace in the UI
         traceback.print_exc()
@@ -180,17 +188,25 @@ def _run(sid: str, scenario: str, mode: str) -> None:
 
 @app.post("/api/sessions", response_model=SessionInfo)
 def start_session(body: SessionBody) -> SessionInfo:
-    sc = demo.SCENARIOS.get(body.scenario)
-    if sc is None:
-        raise HTTPException(404, detail=f"Unknown scenario {body.scenario!r}.")
-    if body.mode not in sc.modes:
-        raise HTTPException(400, detail=f"Scenario {body.scenario!r} supports {sc.modes}.")
+    if body.scenario == "custom":
+        if not (body.prompt or "").strip():
+            raise HTTPException(400, detail="Type a prompt for the agent.")
+        if len(body.prompt or "") > 2000:
+            raise HTTPException(400, detail="Keep the prompt under 2000 characters.")
+        mode = "live"
+    else:
+        sc = demo.SCENARIOS.get(body.scenario)
+        if sc is None:
+            raise HTTPException(404, detail=f"Unknown scenario {body.scenario!r}.")
+        if body.mode not in sc.modes:
+            raise HTTPException(400, detail=f"Scenario {body.scenario!r} supports {sc.modes}.")
+        mode = body.mode
     sid = f"{body.scenario[:3]}-{uuid.uuid4().hex[:6]}"
-    info = SessionInfo(session_id=sid, scenario=body.scenario, mode=body.mode, status="running", started=now_iso())
+    info = SessionInfo(session_id=sid, scenario=body.scenario, mode=mode, status="running", started=now_iso())
     RUNS[sid] = {"info": info, "events": [], "lock": threading.Lock()}
     for old in list(RUNS)[:-MAX_RUNS]:
         RUNS.pop(old, None)
-    threading.Thread(target=_run, args=(sid, body.scenario, body.mode), daemon=True).start()
+    threading.Thread(target=_run, args=(sid, body.scenario, mode, body.prompt, body.plant_poison), daemon=True).start()
     return info
 
 

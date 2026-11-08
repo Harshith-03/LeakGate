@@ -59,3 +59,10 @@ def test_scenarios_and_unknown_session(client):
     assert {"research", "injection", "insider"} <= names
     assert client.get("/api/sessions/nope/events").status_code == 404
     assert client.post("/api/sessions", json={"scenario": "nope"}).status_code == 404
+
+
+def test_presets_and_custom_validation(client):
+    pres = client.get("/api/presets").json()
+    assert len(pres) >= 3 and all({"title", "prompt", "plant_poison"} <= set(p) for p in pres)
+    assert client.post("/api/sessions", json={"scenario": "custom", "prompt": "  "}).status_code == 400
+    assert client.post("/api/sessions", json={"scenario": "custom", "prompt": "x" * 2001}).status_code == 400
