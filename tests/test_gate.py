@@ -197,3 +197,9 @@ def test_mask_and_strip():
     q = "flood claim SSN 531-74-2290 Boca"
     i = q.index("531")
     assert strip_spans(q, [(i, i + 11)]) == "flood claim Boca"
+
+
+def test_mask_text_for_display(s, gate):
+    shown = gate.mask_text(f"Dear Maria Okonkwo-Reyes, claim {REC['claim_id']} (SSN {SSN}) is under review.")
+    assert "Okonkwo" not in shown and REC["claim_id"] not in shown and SSN not in shown
+    assert shown.startswith("Dear ") and "under review" in shown

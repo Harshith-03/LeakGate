@@ -26,6 +26,7 @@ _LOCK = threading.Lock()
 _ORIG: dict = {}
 _STATE = {"installed": False, "blocked": 0, "allowed_hosts": [], "last_blocked": []}
 _HOOK: dict = {"on_block": None}
+_RESOLVED: set[str] = set()     # IPs that an ALLOWED hostname resolved to (connect() sees only the IP)
 
 
 def _host_port(address) -> tuple[str | None, object]:
@@ -39,7 +40,7 @@ def _allowed(host: str | None) -> bool:
     if host is None or host == "":
         return True
     h = str(host).strip("[]").split("%")[0].lower().rstrip(".")
-    if h in _STATE["allowed_hosts"] or h == "localhost" or h.endswith(".localhost"):
+    if h in _STATE["allowed_hosts"] or h in _RESOLVED or h == "localhost" or h.endswith(".localhost"):
         return True
     try:
         ip = ipaddress.ip_address(h)
@@ -91,7 +92,14 @@ def _getaddrinfo(host, port, *args, **kwargs):
             ipaddress.ip_address(str(h).strip("[]").split("%")[0])   # an IP literal: no DNS, connect() decides
         except ValueError:
             _block(h, port)
-    return _ORIG["getaddrinfo"](host, port, *args, **kwargs)
+    res = _ORIG["getaddrinfo"](host, port, *args, **kwargs)
+    if h is not None and _allowed(h):
+        for r in res:
+            try:
+                _RESOLVED.add(str(r[4][0]).split("%")[0].lower())
+            except (IndexError, TypeError):
+                pass
+    return res
 
 
 def install(allow_hosts=("127.0.0.1", "localhost", "::1"), on_block=None) -> None:

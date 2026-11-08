@@ -66,7 +66,7 @@ call `mark_untrusted` automatically.
 | POST | `/api/inspect` body `{channel, tool, destination, url?, payload, origin?, private?: bool, untrusted?: bool}` | `Decision` (Playground; a playground session with the demo vault) |
 | GET | `/api/ledger?limit=200` | `LedgerRecord[]` newest first |
 | GET | `/api/ledger/verify` | `LedgerStatus` |
-| GET | `/api/policy` | `Policy` with `confidential_terms` masked (`"Project B••••••"`) |
+| GET | `/api/policy` | `Policy` with `confidential_terms` masked (`"P•••••• B••••••"`) |
 | GET | `/api/vault` | `VaultSummary` |
 | GET | `/api/bench` | `BenchReport` (below) or `{available: false}` |
 

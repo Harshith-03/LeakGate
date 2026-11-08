@@ -212,6 +212,26 @@ class Gate:
     def host_allowlisted(self, host: str) -> bool:
         return any(r.host.lower() == host for r in self.policy.destinations)
 
+    def mask_text(self, text: Optional[str]) -> Optional[str]:
+        """For DISPLAY: mask every vault value and sensitive pattern in free text (agent answers, logs)."""
+        if not text:
+            return text
+        try:
+            spans = [(h.start, h.end) for h in self.vault.scan(text)]
+            spans += [(p.start, p.end) for p in find_patterns(text) if p.severity != "low"]
+        except Exception:
+            return mask(text)
+        out, pos = [], 0
+        for a, b in sorted(spans):
+            if b <= pos:
+                continue
+            a = max(a, pos)
+            out.append(text[pos:a])
+            out.append(mask(text[a:b]))
+            pos = b
+        out.append(text[pos:])
+        return "".join(out)
+
     def model_on(self) -> bool:
         return self.policy.use_context_model and llm.available(self.model)
 
@@ -409,11 +429,17 @@ class Gate:
                                     preview=u.preview, severity="critical",
                                     explanation="Private data is being sent to a link planted in web content the agent read: "
                                     "the signature of a prompt-injection exfiltration."))
-            return done("block", f"Blocked a prompt-injection exfiltration: {_what(data)} was headed to {u.preview}, "
+            verb = "were" if " and " in _what(data) else "was"
+            return done("block", f"Blocked a prompt-injection exfiltration: {_what(data)} {verb} headed to {u.preview}, "
                                  "a link planted in a web page the agent read.", None)
         if crit_dest:
             return done("block", f"Lockdown: {dest} is not an approved destination, and this agent has read private "
                                  "data and untrusted web content.", None)
+        split = [f for f in data if f.kind == "split_leak"]
+        if split:
+            what = split[0].explanation.split("completes the ", 1)[-1].rstrip(".")
+            return done("block", f"Blocked: this piece would complete the {what}, sent in parts across earlier "
+                                 "requests.", None)
         if never:
             return done("block", f"Blocked: {_what(never)} must never leave.", None)
         if obf:
