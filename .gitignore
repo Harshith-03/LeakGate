@@ -34,3 +34,7 @@ Thumbs.db
 .idea/
 *.log
 .claude/
+
+# Firebase demo build
+app/web/dist-firebase/
+app/web/.firebase/
