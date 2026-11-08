@@ -3,7 +3,7 @@
 **Tagline:** A firewall for AI agents. Once an agent has touched private data, it can only talk to
 approved places, only with cleaned-up messages, and you can prove what left.
 
-**Tracks:** Privacy-First · Most Startup-able · Surge (Tavily)
+**Tracks:** Privacy-First · Most Startup-able · Surge (Tavily) · Signal-to-Dose
 
 ## Inspiration
 This weekend we built an offline AI pipeline for pharma launch intelligence (Signal Vault, our
@@ -46,6 +46,11 @@ Northwind Mutual, a fictional insurer (all data synthetic):
    the request, the base64 retry, and a raw socket that skips the SDK.
 3. An insider-style run: an internal codename is rewritten out, a paste-site upload is blocked, and a
    claim number sent in two pieces is stopped at the second piece.
+4. **Drug intelligence (pharma_research / pharma_injection):** a pharma agent reads an FDA safety
+   signal (Track 4 prediction FDA-0008: "Decreased lymphocytes 36 8") and searches with it.
+   LeakGate rewrites the query so the verbatim span never reaches Tavily. In the injection variant,
+   a planted page tries to exfiltrate the signal to pharma-verify.net — blocked. The paste-site
+   upload attempt is blocked too.
 
 Every run is available scripted (reproducible) or live: a LangGraph agent on the local model chooses
 its own tool calls.

@@ -46,9 +46,12 @@ that bypasses the SDK.
 ## How it decides
 ```mermaid
 flowchart LR
+  T4[Track 4<br/>fine-tuned classifier] -->|actionable spans +<br/>codenames| V
+  CRM[Private data<br/>CRM / intel report] -->|load_private| V[(Vault<br/>keyed HMACs)]
+  V --> A
   A[Agent tool call] --> D{Destination<br/>approved?}
-  D --> T{Taint<br/>private + untrusted = lockdown}
-  T --> P[Patterns<br/>SSN, cards, keys...]
+  D --> TA{Taint<br/>private + untrusted = lockdown}
+  TA --> P[Patterns<br/>SSN, cards, keys...]
   P --> F[Vault fingerprints<br/>plain + decoded + split]
   F --> C[Local model<br/>paraphrase, business secrets]
   C --> X{Decision}
@@ -112,3 +115,70 @@ app/api/             FastAPI (CONTRACTS.md §2)        app/web/   React dashboar
 bench/               benchmark generator + runner     tests/     pytest
 policies/            the policy (allowlist, block kinds, confidential codenames)
 ```
+
+## Track 4 / Signal-to-Dose
+
+**What Track 4 contributes:** Track 4 is a fine-tuned Qwen2.5-3B model that classifies drug intelligence items (clinical trial data, FDA notices, news) into signal types (efficacy, safety, regulatory, etc.) with verbatim span citations extracted from the source text. The spans from actionable predictions are fingerprinted into LeakGate's vault via `leakgate/integrations/pharma_vault.py`. When an agent reads a drug intelligence report and later tries to include those exact phrases in an outbound search or message, LeakGate catches and rewrites or blocks them.
+
+**Model weights:** LoRA adapters (13 MB) are on HuggingFace at
+[`CodingSamurai/signal-to-dose-qwen2.5-3b-lora`](https://huggingface.co/CodingSamurai/signal-to-dose-qwen2.5-3b-lora).
+They are trained on top of [`mlx-community/Qwen2.5-3B-Instruct-4bit`](https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-4bit)
+(rank-8 LoRA, 8 layers, 300 iterations). Fusing the adapters into the base model is lossless —
+the quality is identical to the full fused checkpoint.
+
+**To run the pharma demo scenarios (LeakGate + Track 4 integrated):**
+```bash
+# Start the backend
+python -m uvicorn app.api.main:app --host 127.0.0.1 --port 8100
+
+# In the UI, select "Drug intelligence leak prevention" or "Poisoned result targets trial data"
+# Or trigger via API:
+curl -X POST http://127.0.0.1:8100/api/sessions \
+  -H "Content-Type: application/json" \
+  -d '{"scenario": "pharma_research", "mode": "scripted"}'
+```
+
+**To evaluate Track 4 independently (Signal-to-Dose judges):**
+
+The pre-computed predictions for all 240 test items are already in this repo at
+`agent/data/drug_intel_predictions.jsonl`. To score them directly with the hackathon scoring script
+(no model needed):
+
+```bash
+python /path/to/hackathon_package/scoring/score.py \
+  --predictions agent/data/drug_intel_predictions.jsonl \
+  --gold /path/to/hackathon_package/data/dev.full.jsonl
+```
+
+To reproduce predictions from scratch using the fine-tuned model (Apple Silicon, MLX):
+
+```bash
+# Load the fine-tuned model directly from HuggingFace in Python:
+from mlx_lm import load, generate
+model, tok = load(
+    "mlx-community/Qwen2.5-3B-Instruct-4bit",
+    adapter_path="CodingSamurai/signal-to-dose-qwen2.5-3b-lora"
+)
+# model and tok are ready for inference — no internet needed after the initial download.
+
+# Or, from the Track 4 submission directory, run predict.py with the adapters pre-downloaded:
+# 1. Download adapters:
+hf download CodingSamurai/signal-to-dose-qwen2.5-3b-lora --local-dir best_adapters
+# 2. Run predictions (Apple Silicon, MLX):
+USE_FINETUNED=1 python predict.py \
+  --input /path/to/hackathon_package/data/test_inputs.full.jsonl \
+  --output submission.jsonl
+
+# Ollama fallback (any platform, no Apple Silicon required):
+OLLAMA_MODEL=qwen2.5:3b-instruct python predict.py \
+  --input /path/to/hackathon_package/data/test_inputs.full.jsonl \
+  --output submission.jsonl
+
+# Evaluate on the dev set:
+USE_FINETUNED=1 python evaluate.py
+```
+
+The model runs entirely locally after the initial adapter download (~13 MB). No internet connection
+required during inference.
+
+**How the two systems connect:** Track 4 identifies WHAT is sensitive — the exact phrases from drug intelligence documents that signal clinical efficacy, safety findings, or competitive moves. LeakGate enforces that those phrases never leave the machine. The bridge is `leakgate/integrations/pharma_vault.py` — it reads Track 4's predictions and fingerprints every actionable span as a keyed HMAC in LeakGate's vault. The vault then catches those phrases in any outbound request, verbatim or encoded.

@@ -20,6 +20,7 @@ from pydantic import BaseModel
 
 from agent import demo
 from leakgate import config, llm, mask, netguard
+from leakgate.integrations import pharma_vault
 from leakgate.gate import Gate, Session
 from leakgate.integrations.tavily import api_key as tavily_key
 from leakgate.schema import AgentEvent, Decision, LedgerRecord, LedgerStatus, Policy, ScenarioInfo, SessionInfo, VaultSummary, now_iso
@@ -34,6 +35,7 @@ def gate() -> Gate:
     if g is None:
         g = Gate.default()
         g.register_source(demo.CRM_PATH)
+        pharma_vault.load_into_gate(g)
         STATE["gate"] = g
     return g
 
