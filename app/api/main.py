@@ -33,7 +33,8 @@ def gate() -> Gate:
     g = STATE["gate"]
     if g is None:
         g = Gate.default()
-        g.register_source(demo.CRM_PATH)
+        for src in demo.SOURCES:
+            g.register_source(src)
         STATE["gate"] = g
     return g
 
@@ -144,12 +145,19 @@ class SessionBody(BaseModel):
     mode: Literal["scripted", "live"] = "scripted"
     prompt: Optional[str] = None                    # custom only: what the user typed (max 2000 chars)
     plant_poison: bool = False                      # custom only: append the red-team page to search results
+    workspace: Literal["insurance", "pharma"] = "insurance"   # custom only: which company's agent and data
+
+
+@app.get("/api/workspaces")
+def workspaces() -> list[dict]:
+    """The demo companies the prompt console can switch between."""
+    return list(demo.WORKSPACES.values())
 
 
 @app.get("/api/presets")
-def presets() -> list[dict]:
-    """Suggested prompts for the prompt box (custom sessions)."""
-    return demo.PRESETS
+def presets(workspace: Literal["insurance", "pharma"] = "insurance") -> list[dict]:
+    """Suggested prompts for the prompt box (custom sessions), per workspace."""
+    return demo.presets(workspace)
 
 
 def _emitter(sid: str, s: Session):
@@ -171,12 +179,13 @@ def _emitter(sid: str, s: Session):
     return emit
 
 
-def _run(sid: str, scenario: str, mode: str, prompt: Optional[str] = None, plant_poison: bool = False) -> None:
+def _run(sid: str, scenario: str, mode: str, prompt: Optional[str] = None, plant_poison: bool = False,
+         workspace: str = "insurance") -> None:
     g = gate()
     s = g.session(sid)
     emit = _emitter(sid, s)
     try:
-        demo.run(scenario, mode, g, s, emit, prompt=prompt, plant_poison=plant_poison)
+        demo.run(scenario, mode, g, s, emit, prompt=prompt, plant_poison=plant_poison, workspace=workspace)
         RUNS[sid]["info"].status = "done"
     except Exception as e:                                     # never a stack trace in the UI
         traceback.print_exc()
@@ -206,7 +215,7 @@ def start_session(body: SessionBody) -> SessionInfo:
     RUNS[sid] = {"info": info, "events": [], "lock": threading.Lock()}
     for old in list(RUNS)[:-MAX_RUNS]:
         RUNS.pop(old, None)
-    threading.Thread(target=_run, args=(sid, body.scenario, mode, body.prompt, body.plant_poison), daemon=True).start()
+    threading.Thread(target=_run, args=(sid, body.scenario, mode, body.prompt, body.plant_poison, body.workspace), daemon=True).start()
     return info
 
 

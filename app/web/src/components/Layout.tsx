@@ -50,7 +50,7 @@ export function Layout() {
       </main>
 
       <footer className="relative mx-auto hidden max-w-[1560px] px-10 pb-8 text-caption text-chrome-3 md:block">
-        LeakGate runs on 127.0.0.1. Northwind Mutual is a fictional insurer and every customer here is synthetic.
+        LeakGate runs on 127.0.0.1. Northwind Mutual and Northwind Pharma are fictional companies; every customer, patient and doctor here is synthetic.
       </footer>
 
       <BottomKeys />

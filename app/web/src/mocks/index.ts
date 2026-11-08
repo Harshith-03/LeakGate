@@ -11,6 +11,7 @@ import type {
   Status, TaintState,
 } from "../api/types";
 import { BENCH, MODEL, POLICY, PRESETS, SCENARIOS, VAULT } from "./data";
+import { PHARMA_PRESETS } from "../lib/presets";
 import { hex64 } from "./hash";
 import { inspect } from "./inspector";
 import { SCRIPTS, custom, type Step } from "./scenarios";
@@ -193,7 +194,7 @@ export async function mockRequest(method: string, path: string, body?: unknown):
 
   if (method === "GET" && p === "/api/status") return status();
   if (method === "GET" && p === "/api/scenarios") return clone(SCENARIOS);
-  if (method === "GET" && p === "/api/presets") return clone(PRESETS);
+  if (method === "GET" && p === "/api/presets") return clone(url.searchParams.get("workspace") === "pharma" ? PHARMA_PRESETS : PRESETS);
   if (method === "POST" && p === "/api/sessions") {
     const b = (body ?? {}) as Partial<CreateSessionRequest>;
     if (b.scenario === CUSTOM_SCENARIO) {

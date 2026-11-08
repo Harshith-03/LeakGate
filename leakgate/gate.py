@@ -30,7 +30,7 @@ import traceback
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Optional
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 from . import config, llm
 from . import context as ctxmod
@@ -49,7 +49,7 @@ KIND_LABELS = {
     "iban": "a bank account number", "api_key": "an API key", "private_key": "a private key", "jwt": "a session token",
     "password": "a password", "ip_address": "an internal IP address", "dob": "a date of birth",
     "private_record": "private customer data", "confidential_term": "a confidential codename",
-    "private_passage": "a passage from a private file", "personal_context": "personal details about a customer",
+    "private_passage": "a passage from a private file", "personal_context": "personal details about a customer or patient",
     "confidential_business": "confidential business information",
     "split_leak": "the last piece of a private value sent in pieces", "exfil_url": "private data",
 }
@@ -192,7 +192,7 @@ class Gate:
         src = data.get("source", Path(path).stem)
         pub = set(data.get("public_fields", []))
         self.public_fields[src] = pub
-        return self.vault.add_records(src, data.get("records", []), pub)
+        return self.vault.add_records(src, data.get("records", []), pub, id_field=data.get("id_field", "customer_id"))
 
     def session(self, session_id: Optional[str] = None) -> Session:
         sid = session_id or uuid.uuid4().hex[:8]
@@ -225,6 +225,11 @@ class Gate:
         """For DISPLAY: mask every vault value and sensitive pattern in free text (agent answers, logs)."""
         if not text:
             return text
+        if "%" in text:                                    # show URL-encoded values decoded, so they get masked too
+            try:
+                text = unquote(text)
+            except Exception:
+                pass
         try:
             spans = [(h.start, h.end) for h in self.vault.scan(text)]
             spans += [(p.start, p.end) for p in find_patterns(text) if p.severity != "low"]
@@ -558,10 +563,16 @@ def _what(fs: list[Finding]) -> str:
         lab = KIND_LABELS.get(f.kind, f.kind.replace("_", " "))
         if f.kind == "private_record" and f.source_ref:
             field = f.source_ref.rsplit(".", 1)[-1]
-            lab = {"ssn": "a customer's SSN", "name": "a customer's name", "policy_number": "a policy number",
-                   "claim_id": "a claim ID", "address": "a street address", "email": "a customer's email",
-                   "phone": "a customer's phone number", "dob": "a date of birth", "card_on_file": "a card number",
-                   "claim_amount": "a claim amount", "city": "a city", "zip": "a ZIP code"}.get(field, lab)
+            if f.source_ref.startswith("safety:"):           # drug-safety cases (pharma workspace)
+                lab = {"reporter_name": "the reporting doctor's name", "reporter_phone": "the reporter's phone number",
+                       "mrn": "a patient's MRN", "patient": "patient details", "patient_name": "a patient's name",
+                       "hospital": "the hospital", "clinic": "the clinic", "dob": "a patient's date of birth",
+                       "city": "a city", "narrative": "a verbatim case narrative"}.get(field, "private case data")
+            else:
+                lab = {"ssn": "a customer's SSN", "name": "a customer's name", "policy_number": "a policy number",
+                       "claim_id": "a claim ID", "address": "a street address", "email": "a customer's email",
+                       "phone": "a customer's phone number", "dob": "a date of birth", "card_on_file": "a card number",
+                       "claim_amount": "a claim amount", "city": "a city", "zip": "a ZIP code"}.get(field, lab)
         if lab not in kinds:
             kinds.append(lab)
     if not kinds:

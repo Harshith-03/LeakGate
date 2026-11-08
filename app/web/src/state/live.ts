@@ -5,7 +5,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { api, ApiError } from "../api/client";
-import { CUSTOM_SCENARIO, type AgentEvent, type Decision, type RunMode, type SessionInfo, type TaintState } from "../api/types";
+import { CUSTOM_SCENARIO, type AgentEvent, type Decision, type RunMode, type SessionInfo, type TaintState, type Workspace } from "../api/types";
 import { refreshStatus } from "./status";
 
 export interface LiveState {
@@ -76,7 +76,8 @@ async function poll(token: number, sessionId: string, animate: boolean) {
  * Start a guided demo (`scenario`, `mode`) or, with `prompt`, a free-form live run. The previous run
  * stays on screen until the API accepts the new one, so a rejected prompt (400) doesn't blank the page.
  */
-export async function startRun(scenario: string, mode: RunMode, custom?: { prompt: string; plant_poison: boolean }) {
+export async function startRun(scenario: string, mode: RunMode,
+  custom?: { prompt: string; plant_poison: boolean; workspace?: Workspace }) {
   const token = ++runToken;
   set({ starting: true, running: false, error: null });
   try {
@@ -90,8 +91,8 @@ export async function startRun(scenario: string, mode: RunMode, custom?: { promp
 }
 
 /** Run whatever the user typed: a LangGraph agent on the local model, behind the gate (live only). */
-export function startPrompt(prompt: string, plantPoison: boolean) {
-  return startRun(CUSTOM_SCENARIO, "live", { prompt, plant_poison: plantPoison });
+export function startPrompt(prompt: string, plantPoison: boolean, workspace: Workspace = "insurance") {
+  return startRun(CUSTOM_SCENARIO, "live", { prompt, plant_poison: plantPoison, workspace });
 }
 
 /**

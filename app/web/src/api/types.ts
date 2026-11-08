@@ -224,7 +224,12 @@ export interface CreateSessionRequest {
   prompt?: string;
   /** custom only: plant a red-team page with hidden instructions in the search results */
   plant_poison?: boolean;
+  /** custom only: which fictional company's agent and data (default "insurance") */
+  workspace?: Workspace;
 }
+
+/** The demo companies: Northwind Mutual (insurance claims) or Northwind Pharma (drug safety). */
+export type Workspace = "insurance" | "pharma";
 
 export const CUSTOM_SCENARIO = "custom";
 export const PROMPT_MAX = 2000;

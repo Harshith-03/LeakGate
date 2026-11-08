@@ -10,12 +10,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Biohazard, ChevronDown, CornerDownLeft, Loader2, Play, RotateCcw } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { api, ApiError } from "../api/client";
-import { PROMPT_MAX, type Preset, type RunMode, type ScenarioInfo } from "../api/types";
+import { PROMPT_MAX, type Preset, type RunMode, type ScenarioInfo, type Workspace } from "../api/types";
 import { useApi } from "../api/useApi";
-import { DEFAULT_PRESETS } from "../lib/presets";
+import { presetsFor, WORKSPACE_INFO } from "../lib/presets";
 import { clearRun, startPrompt, startRun, useLive } from "../state/live";
 import { useStatus } from "../state/status";
-import { Led, Monitor, ToggleSwitch } from "./crt";
+import { Led, Monitor, SelectorKnob, ToggleSwitch } from "./crt";
 import { Segmented, cx } from "./ui";
 
 function readPref(key: string, fallback: string) {
@@ -26,22 +26,22 @@ function writePref(key: string, v: string) {
 }
 
 /** Presets from the API; the bundled copy if this API predates /api/presets. */
-async function loadPresets(): Promise<Preset[]> {
+async function loadPresets(ws: Workspace): Promise<Preset[]> {
   try {
-    const list = await api.presets();
-    return Array.isArray(list) && list.length ? list : DEFAULT_PRESETS;
+    const list = await api.presets(ws);
+    return Array.isArray(list) && list.length ? list : presetsFor(ws);
   } catch (e) {
-    if (e instanceof ApiError && e.kind !== "offline") return DEFAULT_PRESETS;
+    if (e instanceof ApiError && e.kind !== "offline") return presetsFor(ws);
     throw e;
   }
 }
 
-const PLACEHOLDER = "Ask the claims agent to do something, e.g. look up customer C-1042 and research why her flood claim was denied…";
-
 export function PromptConsole({ className }: { className?: string }) {
   const live = useLive();
   const { status } = useStatus();
-  const presets = useApi(loadPresets);
+  const [ws, setWsState] = useState<Workspace>(() => (readPref("lg.ws", "insurance") === "pharma" ? "pharma" : "insurance"));
+  const presets = useApi(() => loadPresets(ws), [ws]);
+  const info = WORKSPACE_INFO[ws];
   const scenarios = useApi(() => api.scenarios());
   const [prompt, setPromptState] = useState(() => readPref("lg.prompt", ""));
   const [poison, setPoisonState] = useState(() => readPref("lg.poison", "0") === "1");
@@ -55,6 +55,14 @@ export function PromptConsole({ className }: { className?: string }) {
   const setPrompt = (v: string) => { setPromptState(v); writePref("lg.prompt", v); };
   const setPoison = (v: boolean) => { setPoisonState(v); writePref("lg.poison", v ? "1" : "0"); };
   const setMode = (m: RunMode) => { setModeState(m); writePref("lg.mode", m); };
+  const setWs = (w: Workspace) => {
+    if (w === ws) return;
+    setWsState(w);
+    writePref("lg.ws", w);
+    // a suggested prompt from the other company makes no sense here; a hand-typed one is kept
+    if (presetsFor(ws).some((p) => p.prompt === prompt)) setPrompt("");
+    setPoison(false);
+  };
 
   const busy = live.starting || live.running;
   const len = prompt.length;
@@ -62,7 +70,7 @@ export function PromptConsole({ className }: { className?: string }) {
   const canRun = !busy && prompt.trim().length > 0 && !tooLong;
   const modelOff = status ? !status.model_available : false;
 
-  const run = () => { if (canRun) void startPrompt(prompt.trim(), poison); };
+  const run = () => { if (canRun) void startPrompt(prompt.trim(), poison, ws); };
   const runDemo = (s: ScenarioInfo) => {
     if (busy) return;
     const m: RunMode = s.modes.includes(mode) ? mode : s.modes[0] ?? "scripted";
@@ -104,7 +112,7 @@ export function PromptConsole({ className }: { className?: string }) {
       ledLabel={busy ? "Running" : live.error ? "Error" : "Ready"}
       tone="brand"
       glow={focused}
-      right={
+      right={ws === "insurance" &&
         <button
           type="button"
           onClick={() => setDemosOpen((o) => !o)}
@@ -198,14 +206,32 @@ export function PromptConsole({ className }: { className?: string }) {
         </div>
       }
     >
-      <p className="mb-3 max-w-[80ch] text-support text-ink-3">
-        A claims agent at Northwind Mutual reads customer files and searches the web. LeakGate sits between it and the internet:
-        it rewrites private details out of searches, blocks leaks, and records every decision.
-      </p>
+      <div className="mb-3 flex flex-wrap items-center gap-x-5 gap-y-2">
+        <SelectorKnob<Workspace>
+          label="Workspace"
+          value={ws}
+          onChange={setWs}
+          disabled={busy}
+          options={[{ value: "insurance", label: "Insurance" }, { value: "pharma", label: "Pharma" }]}
+        />
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.p
+            key={ws}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.18 }}
+            className="min-w-[16rem] flex-1 text-support text-ink-3"
+          >
+            {info.blurb} LeakGate sits between it and the internet: it rewrites private details out of searches, blocks leaks,
+            and records every decision.
+          </motion.p>
+        </AnimatePresence>
+      </div>
 
       <div className="well px-3.5 py-3 sm:px-4">
         <label className="flex flex-wrap items-baseline gap-x-2 font-mono text-[12px]">
-          <span className="text-good glow-soft">adjuster@northwind</span>
+          <span className="text-good glow-soft">{info.user}</span>
           <span className="text-ink-3">:~$</span>
           <span className="sr-only">Prompt for the agent</span>
           <span className="ml-auto hidden items-center gap-1 text-[11px] text-ink-3 sm:inline-flex">
@@ -217,7 +243,7 @@ export function PromptConsole({ className }: { className?: string }) {
             <div aria-hidden className="pointer-events-none col-start-1 row-start-1 whitespace-pre-wrap break-words text-ink [overflow-wrap:anywhere]"
               style={{ textShadow: "0 0 10px rgb(var(--brand-rgb) / 0.3)" }}>
               {!focused && !prompt && <span className="cursor-block mr-1.5" />}
-              {prompt || <span className="text-ink-3" style={{ textShadow: "none" }}>{PLACEHOLDER}</span>}
+              {prompt || <span className="text-ink-3" style={{ textShadow: "none" }}>{info.placeholder}</span>}
               {!focused && prompt && <span className="cursor-block" />}
               {"​"}
             </div>
@@ -241,7 +267,7 @@ export function PromptConsole({ className }: { className?: string }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Suggested prompts">
         <span className="eyebrow mr-0.5 text-ink-3">Try</span>
-        {(presets.data ?? DEFAULT_PRESETS).map((p) => {
+        {(presets.data ?? presetsFor(ws)).map((p) => {
           const active = prompt === p.prompt;
           return (
             <button

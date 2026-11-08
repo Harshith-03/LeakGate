@@ -70,6 +70,14 @@ flowchart LR
 Each runs **scripted** (reproducible agent steps, real gate, real Tavily) or **live** (a LangGraph
 agent on the local model chooses its own tool calls).
 
+**Second workspace: pharma.** Turn the console's Workspace knob to *Pharma* and the same gate protects
+a drug-safety agent at Northwind Pharma (fictional). Its synthetic adverse-event case (a pulmonary
+embolism on amivantamab + lazertinib) holds the patient's MRN and date of birth, the hospital, and the
+reporting doctor's name and phone number. Tavily gets the clinical question and never the patient; a
+planted "register this case" page and an upload to a paste site are both blocked. The only changes are
+one data file (`agent/data/safety_cases.json`), its tools and two policy destinations. The gate code
+did not change.
+
 ## Benchmark
 200 synthetic outbound requests (65 benign, 135 leak attempts in 6 styles), written before the engine
 existed and judged by a leak checker that shares no code with the engine:

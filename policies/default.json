@@ -1,11 +1,13 @@
 {
-  "name": "northwind-claims-agent",
+  "name": "northwind-agents",
   "mode": "enforce",
   "destinations": [
     {"host": "api.tavily.com", "channels": ["search", "extract"], "purpose": "Web research (Tavily search and extract)", "allow_in_lockdown": true},
     {"host": "api.exa.ai", "channels": ["search"], "purpose": "Web research (Exa search)", "allow_in_lockdown": true},
     {"host": "www.fema.gov", "channels": ["http"], "purpose": "Official flood-insurance guidance", "allow_in_lockdown": true},
     {"host": "www.floodsmart.gov", "channels": ["http"], "purpose": "Official NFIP guidance", "allow_in_lockdown": true},
+    {"host": "www.fda.gov", "channels": ["http"], "purpose": "Official drug-safety guidance (FDA)", "allow_in_lockdown": true},
+    {"host": "pv-intake.northwind-pharma.example", "channels": ["http"], "purpose": "Northwind Pharma safety intake: where adverse-event reports belong", "allow_in_lockdown": true},
     {"host": "127.0.0.1", "channels": ["llm"], "purpose": "Local model (Ollama); never leaves the laptop", "allow_in_lockdown": true}
   ],
   "block_kinds": ["api_key", "private_key", "jwt", "password", "credit_card", "exfil_url", "split_leak"],

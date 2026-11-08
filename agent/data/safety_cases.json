@@ -1,0 +1,50 @@
+{
+  "_note": "SYNTHETIC. Northwind Pharma is a fictional drugmaker; every person, number, hospital and quote below is invented for the LeakGate demo (adapted from the synthetic transcripts in our Signal Vault project). Phone numbers use the 555-01xx range reserved for fiction. The drug names and the adverse-event type are real public information, so they are public fields.",
+  "source": "safety",
+  "id_field": "case_id",
+  "public_fields": [
+    "case_id",
+    "source_type",
+    "drug",
+    "event",
+    "seriousness",
+    "onset",
+    "outcome",
+    "therapy_area",
+    "status"
+  ],
+  "records": [
+    {
+      "case_id": "PV-26-0417",
+      "source_type": "KOL interview (double-blinded market research), 21 Oct 2026",
+      "therapy_area": "EGFR-mutant non-small cell lung cancer",
+      "drug": "amivantamab + lazertinib (Rybrevant + Lazcluze)",
+      "event": "deep vein thrombosis, then pulmonary embolism",
+      "seriousness": "serious: hospitalised for 4 days",
+      "onset": "about 5 weeks after starting treatment; no prophylactic anticoagulation",
+      "outcome": "recovered; back on treatment with apixaban",
+      "status": "open: follow-up needed",
+      "patient": "58-year-old retired teacher",
+      "dob": "1968-02-19",
+      "mrn": "BUH-4471928",
+      "hospital": "Brookfield University Hospital",
+      "reporter_name": "Dr. Wendy Notreal",
+      "reporter_phone": "555-019-8823",
+      "narrative": "I treated him myself at Brookfield; he is a retired teacher and a keen sailor, and his wife phoned me the night he was admitted. My fellow, Dr. Wendy Notreal, filed the report with our safety office the next morning."
+    },
+    {
+      "case_id": "MR-26-0031",
+      "source_type": "Patient-advocacy focus group, 28 Oct 2026",
+      "therapy_area": "EGFR-mutant non-small cell lung cancer",
+      "drug": "amivantamab + lazertinib (Rybrevant + Lazcluze)",
+      "event": "facial rash; stopped going out for a while",
+      "seriousness": "non-serious",
+      "outcome": "continuing treatment",
+      "status": "insight: not a reportable case",
+      "patient_name": "Denise Notarealname",
+      "clinic": "Lakeside Cancer Institute",
+      "city": "Maple Hollow",
+      "narrative": "Denise told the group she stopped going out for a while because of the rash on her face, and that she drives in from Maple Hollow for every infusion at Lakeside."
+    }
+  ]
+}

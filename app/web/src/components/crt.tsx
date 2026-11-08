@@ -3,6 +3,7 @@
  * number ticker. The look lives in index.css (.crt, .crt-screen, .crt-fx, .led, .switch, .readout);
  * these components only wire the structure and the state attributes.
  */
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type CSSProperties, type ElementType, type ReactNode } from "react";
 import { cx } from "../lib/cx";
 
@@ -241,5 +242,74 @@ export function ToggleSwitch({ checked, onChange, label, sub, led = "alarm", ton
         {sub && <span className={cx("mt-0.5 block text-caption leading-snug", onScreen ? "text-ink-3" : "text-chrome-3")}>{sub}</span>}
       </span>
     </button>
+  );
+}
+
+// ---------------------------------------------------------------- selector knob
+
+/**
+ * A two-position rotary selector (like a hi-fi input knob). Each side is a labelled position with its own
+ * LED; clicking the knob turns it to the other side. Exposed as a radiogroup so the choice is said in words.
+ */
+export function SelectorKnob<T extends string>({ value, onChange, options, label, disabled, className }: {
+  value: T; onChange: (v: T) => void; options: [{ value: T; label: string }, { value: T; label: string }];
+  label: string; disabled?: boolean; className?: string;
+}) {
+  const [a, b] = options;
+  const right = value === b.value;
+  const pos = (o: { value: T; label: string }, side: "l" | "r") => {
+    const on = value === o.value;
+    return (
+      <button
+        type="button"
+        role="radio"
+        aria-checked={on}
+        disabled={disabled}
+        onClick={() => onChange(o.value)}
+        className={cx(
+          "flex items-center gap-1.5 rounded-md px-1.5 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em] transition-colors disabled:opacity-50",
+          side === "r" && "flex-row-reverse",
+          on ? "text-ink" : "text-ink-3 hover:text-ink-2",
+        )}
+        style={on ? { textShadow: "0 0 10px rgb(var(--brand-rgb) / 0.55)" } : undefined}
+      >
+        <Led state={on ? "brand" : "off"} size="sm" />
+        {o.label}
+      </button>
+    );
+  };
+  return (
+    <div role="radiogroup" aria-label={label} className={cx("flex items-center gap-1.5", className)}>
+      <span className="eyebrow mr-1 hidden text-ink-3 sm:inline">{label}</span>
+      {pos(a, "l")}
+      <button
+        type="button"
+        aria-hidden
+        tabIndex={-1}
+        disabled={disabled}
+        onClick={() => onChange(right ? a.value : b.value)}
+        className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full disabled:opacity-50"
+        style={{
+          background: "radial-gradient(circle at 50% 50%, rgb(0 0 0 / 0.55) 58%, transparent 60%), conic-gradient(from 0deg, rgb(var(--brand-rgb) / 0.25), rgb(255 255 255 / 0.06), rgb(var(--brand-rgb) / 0.25))",
+          boxShadow: "0 10px 18px -6px rgb(0 0 0 / 0.75), 0 2px 0 rgb(255 255 255 / 0.04) inset",
+        }}
+      >
+        <motion.span
+          className="relative block h-8 w-8 rounded-full"
+          animate={{ rotate: right ? 50 : -50 }}
+          transition={{ type: "spring", stiffness: 260, damping: 18 }}
+          style={{
+            background: "radial-gradient(circle at 35% 30%, #5b6170 0%, #2a2e38 45%, #15171d 100%)",
+            boxShadow: "0 6px 10px -2px rgb(0 0 0 / 0.8), inset 0 1px 1px rgb(255 255 255 / 0.25), inset 0 -2px 3px rgb(0 0 0 / 0.6)",
+          }}
+        >
+          <span
+            className="absolute left-1/2 top-[3px] h-[11px] w-[3px] -translate-x-1/2 rounded-full"
+            style={{ background: "rgb(var(--brand-rgb))", boxShadow: "0 0 8px rgb(var(--brand-rgb) / 0.9)" }}
+          />
+        </motion.span>
+      </button>
+      {pos(b, "r")}
+    </div>
   );
 }

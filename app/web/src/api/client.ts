@@ -13,7 +13,7 @@
 import { useSyncExternalStore } from "react";
 import type {
   AgentEvent, BenchResponse, CreateSessionRequest, Decision, InspectRequest, LedgerRecord, LedgerStatus,
-  Policy, Preset, ScenarioInfo, SessionInfo, Status, VaultSummary,
+  Policy, Preset, ScenarioInfo, SessionInfo, Status, VaultSummary, Workspace,
 } from "./types";
 
 export type ApiErrorKind = "offline" | "not_found" | "http";
@@ -120,7 +120,7 @@ const enc = encodeURIComponent;
 export const api = {
   status: () => request<Status>("/api/status"),
   scenarios: () => request<ScenarioInfo[]>("/api/scenarios"),
-  presets: () => request<Preset[]>("/api/presets"),
+  presets: (workspace: Workspace = "insurance") => request<Preset[]>(`/api/presets?workspace=${workspace}`),
   createSession: (body: CreateSessionRequest) => request<SessionInfo>("/api/sessions", { method: "POST", body }),
   sessions: () => request<SessionInfo[]>("/api/sessions"),
   session: (id: string) => request<SessionInfo>(`/api/sessions/${enc(id)}`),
