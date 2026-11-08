@@ -1,0 +1,302 @@
+@import "tailwindcss";
+
+/* Dark mode follows the explicit toggle stored on <html data-theme>. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ================================================================ design tokens
+   The single source of truth (see DESIGN.md). Every colour the UI uses is a role token,
+   so light/dark swap in one place and components never carry raw hex. */
+:root {
+  color-scheme: light;
+
+  /* surfaces: warm ivory page, white cards, tonal wells */
+  --bg: #f5f4ee;
+  --surface: #ffffff;
+  --surface-2: #faf9f5;
+  --surface-3: #eae9df;
+  --line: #e6e4da;
+  --line-strong: #d3d1c4;
+  --scrim: rgb(41 45 36 / 0.32);
+
+  /* ink: all three clear WCAG AA on --bg, --surface and --surface-2 */
+  --ink: #292d24;
+  --ink-2: #4b5044;
+  --ink-3: #64695d;
+  --ink-inverse: #ffffff;
+
+  /* brand: olive for action + selection, sage for soft accents */
+  --brand: #506727;
+  --brand-hover: #445821;
+  --on-brand: #ffffff;
+  --brand-soft: #dce2ac;
+  --brand-tint: #eef1db;
+  --accent: #9daf6b;
+  --hero: #46592a;
+  --on-hero: #f3f5e4;
+  --on-hero-2: #cfd8a8;
+  --focus: #506727;
+
+  /* status (reserved meaning; always paired with icon + label) */
+  --good: #3e6a1f;
+  --good-soft: #e7edd5;
+  --warn: #875b06;
+  --warn-soft: #f5eacd;
+  --crit: #ae3a2c;
+  --crit-soft: #f7e2dc;
+  --info: #44607a;
+  --info-soft: #e4eaee;
+
+  /* benchmark systems: categorical slots validated with the dataviz validator against --surface
+     (adjacent order regex → presidio → rules → full; CVD ΔE ≥ 23, normal ΔE ≥ 24). Slot 3 sits
+     under 3:1 on white, so the chart always ships value labels and a table view. */
+  --series-regex: #eb6834;
+  --series-presidio: #6250d6;
+  --series-rules: #1baf7a;
+  --series-full: #2a78d6;
+
+  /* chart chrome */
+  --grid: #ecebe3;
+  --axis: #d3d1c4;
+
+  /* elevation: restrained, warm-tinted */
+  --shadow-xs: 0 1px 0 rgb(41 45 36 / 0.03), 0 1px 2px rgb(41 45 36 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(41 45 36 / 0.05), 0 6px 16px -6px rgb(41 45 36 / 0.12);
+  --shadow-lg: 0 2px 6px rgb(41 45 36 / 0.06), 0 24px 48px -16px rgb(41 45 36 / 0.22);
+
+  --pad-card: 1.25rem;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #141511;
+  --surface: #1c1e18;
+  --surface-2: #21231c;
+  --surface-3: #2b2e25;
+  --line: #2f3229;
+  --line-strong: #43473a;
+  --scrim: rgb(0 0 0 / 0.5);
+
+  --ink: #edeee5;
+  --ink-2: #c8cabc;
+  --ink-3: #a0a394;
+  --ink-inverse: #141511;
+
+  --brand: #afc47a;
+  --brand-hover: #bfd28b;
+  --on-brand: #172009;
+  --brand-soft: #2e3721;
+  --brand-tint: #232a1a;
+  --accent: #9daf6b;
+  --hero: #313d20;
+  --on-hero: #eef2dc;
+  --on-hero-2: #b9c690;
+  --focus: #afc47a;
+
+  --good: #aecb7e;
+  --good-soft: #253019;
+  --warn: #e5b65c;
+  --warn-soft: #34290f;
+  --crit: #f08e7c;
+  --crit-soft: #3b211b;
+  --info: #a3b8cc;
+  --info-soft: #222a31;
+
+  --series-regex: #d95926;
+  --series-presidio: #9085e9;
+  --series-rules: #199e70;
+  --series-full: #3987e5;
+
+  --grid: #2a2d24;
+  --axis: #43473a;
+
+  --shadow-xs: 0 1px 0 rgb(0 0 0 / 0.25);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 20px -8px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 2px 6px rgb(0 0 0 / 0.35), 0 24px 56px -16px rgb(0 0 0 / 0.7);
+}
+
+@theme inline {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "DM Sans Variable", "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", monospace;
+
+  /* named type styles (size + line height); weights stay 400/500/600 */
+  --text-display: 3rem;
+  --text-display--line-height: 1;
+  --text-metric: 2rem;
+  --text-metric--line-height: 1;
+  --text-title: 1.75rem;
+  --text-title--line-height: 1.15;
+  --text-heading: 1rem;
+  --text-heading--line-height: 1.3;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.55;
+  --text-support: 0.8125rem;
+  --text-support--line-height: 1.45;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 1.35;
+
+  /* radii */
+  --radius-chip: 8px;
+  --radius-control: 12px;
+  --radius-panel: 16px;
+  --radius-card: 20px;
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-on-brand: var(--on-brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-tint: var(--brand-tint);
+  --color-accent: var(--accent);
+  --color-hero: var(--hero);
+  --color-on-hero: var(--on-hero);
+  --color-on-hero-2: var(--on-hero-2);
+  --color-focus: var(--focus);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-crit: var(--crit);
+  --color-crit-soft: var(--crit-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-lg: var(--shadow-lg);
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background: var(--bg);
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-size: var(--text-body);
+    line-height: 1.55;
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+  [hidden] {
+    display: none !important;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 22%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+  button, [role="button"], summary {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  @media (max-width: 1023.98px) {
+    :root { --pad-card: 1rem; }
+  }
+}
+
+@layer utilities {
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  /* Inter's stylistic sets don't apply to DM Sans; reset them for display text. */
+  .font-display {
+    font-family: var(--font-display);
+    font-feature-settings: normal;
+  }
+  /* "No data" is hatched so it can never be mistaken for a neutral 0. */
+  .hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      transparent 0 5px,
+      color-mix(in srgb, var(--ink-3) 22%, transparent) 5px 6px
+    );
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  /* Interactive cards lift a little on hover so they read as clickable. */
+  .lift {
+    transition: transform 160ms ease-out, box-shadow 160ms ease-out, border-color 160ms ease-out, background-color 160ms ease-out;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .press {
+    transition: transform 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out;
+  }
+  .press:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The blocked card announces itself once with a soft ring, then sits still. */
+@keyframes lg-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--crit) 38%, transparent), var(--shadow-sm); }
+  100% { box-shadow: 0 0 0 14px color-mix(in srgb, var(--crit) 0%, transparent), var(--shadow-sm); }
+}
+.ring-once {
+  animation: lg-ring 1.1s ease-out 2;
+}
+@keyframes sv-shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-3) 0%, color-mix(in srgb, var(--surface-3) 45%, var(--surface)) 50%, var(--surface-3) 100%);
+  background-size: 800px 100%;
+  animation: sv-shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-chip);
+  opacity: 0.8;
+}
+@keyframes sv-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.live-dot {
+  animation: sv-pulse 2.4s ease-in-out infinite;
+}
+@keyframes lg-spin {
+  to { transform: rotate(360deg); }
+}
+.spin {
+  animation: lg-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton, .live-dot, .ring-once, .spin { animation: none; }
+  .lift, .press { transition: none; }
+  .lift:hover { transform: none; }
+  .press:active:not(:disabled) { transform: none; }
+  html { scroll-behavior: auto; }
+}
