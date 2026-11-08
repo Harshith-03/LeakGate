@@ -83,11 +83,11 @@ function Report({ report, demo }: { report: BenchReport; demo: boolean }) {
       {lg && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <RateTile label="Catch rate" icon={<ShieldCheck size={17} />} tone="brand" lg={lg} rx={rx} pick={(s) => s.catch_rate}
-            sub="Leak cases where the private value did not leave" colorOf={colorOf} />
+            sub="Leak cases where the private value did not leave" colorOf={colorOf} digits={1} />
           <RateTile label="False alarm rate" icon={<Gauge size={17} />} tone="neutral" lg={lg} rx={rx} pick={(s) => s.false_alarm_rate}
             sub="Benign cases blocked or altered (lower is better)" colorOf={colorOf} digits={1} />
           <RateTile label="Utility" icon={<Sparkles size={17} />} tone="neutral" lg={lg} rx={rx} pick={(s) => s.utility}
-            sub="Research terms that survived into what was sent" colorOf={colorOf} />
+            sub="Research terms that survived into what was sent" colorOf={colorOf} digits={1} />
           <Stat
             label="Latency (p50)"
             icon={<Timer size={17} />}

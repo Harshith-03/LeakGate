@@ -42,7 +42,7 @@ function PolicyView({ p }: { p: Policy }) {
     <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Policy" icon={<ShieldCheck size={17} />} tone="brand"
-          value={<span className="break-all font-mono text-[18px] font-medium tracking-normal">{p.name}</span>}>
+          value={<span className="block break-words font-mono text-[15px] font-medium leading-snug tracking-normal [overflow-wrap:anywhere]" title={p.name}>{p.name.split("-").map((w, i, a) => <span key={i}>{w}{i < a.length - 1 ? "-" : ""}<wbr /></span>)}</span>}>
           <div className="mt-3"><ModeChip mode={p.mode} /></div>
           <p className="mt-2 text-caption text-ink-3">
             {p.mode === "enforce"

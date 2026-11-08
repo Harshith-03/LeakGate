@@ -99,7 +99,11 @@ class VaultHit:
 @dataclass
 class _Source:
     fields: set[str] = field(default_factory=set)
-    fingerprints: int = 0
+    keys: set[bytes] = field(default_factory=set)      # unique fingerprints from this source
+
+    @property
+    def fingerprints(self) -> int:
+        return len(self.keys)
 
 
 def _tokens(s: str) -> list[str]:
@@ -128,16 +132,22 @@ class Vault:
         self._tok_lens: set[int] = set()
         self._dig_lens: set[int] = set()
         self._sources: dict[str, _Source] = {}
+        self._current: Optional[_Source] = None
         self._terms = 0
 
     # ------------------------------------------------------------ hashing
     def _h(self, form: str) -> bytes:
         return hmac.new(self._key, form.encode("utf-8"), hashlib.sha256).digest()[:16]
 
+    def _track(self, k: bytes) -> None:
+        if self._current is not None:
+            self._current.keys.add(k)
+
     def _put_tokens(self, toks: list[str], ref: Ref) -> int:
         if not toks or len(toks) > MAX_TOKENS:
             return 0
         k = self._h("t:" + " ".join(toks))
+        self._track(k)
         old = self._tok.get(k)
         if old is None or SEVERITY_ORDER[ref.severity] > SEVERITY_ORDER[old.severity]:
             self._tok[k] = ref
@@ -148,6 +158,7 @@ class Vault:
         if len(d) < MIN_DIGITS:
             return 0
         k = self._h("d:" + d)
+        self._track(k)
         old = self._dig.get(k)
         if old is None or SEVERITY_ORDER[ref.severity] > SEVERITY_ORDER[old.severity]:
             self._dig[k] = ref
@@ -158,6 +169,7 @@ class Vault:
     def add_record(self, source: str, record_id: str, record: dict, public_fields: Optional[set[str]] = None) -> int:
         public = set(DEFAULT_PUBLIC if public_fields is None else public_fields)
         src = self._sources.setdefault(source, _Source())
+        self._current = src
         n = 0
         for fname, value in record.items():
             if fname in public or value is None or fname.startswith("_"):
@@ -172,7 +184,7 @@ class Vault:
             if added:
                 src.fields.add(fname)
                 n += added
-        src.fingerprints += n
+        self._current = None
         return n
 
     def _add_value(self, fname: str, value: str, ref: str, label: str) -> int:
@@ -244,6 +256,7 @@ class Vault:
 
     def add_terms(self, terms: list[str], source: str = "policy") -> int:
         src = self._sources.setdefault(source, _Source())
+        self._current = src
         n = 0
         for i, term in enumerate(terms):
             toks = _tokens(term)
@@ -254,7 +267,7 @@ class Vault:
                     n += self._put_tokens([t], Ref(ref.source_ref, "confidential_term", "medium",
                                                    "confidential term (part)"))
         src.fields.add("confidential_terms")
-        src.fingerprints += n
+        self._current = None
         self._terms += len(terms)
         return n
 
