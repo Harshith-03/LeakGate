@@ -77,7 +77,7 @@ def notes(cid: str, i: int) -> str:
 
 WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
 CYRILLIC = {"a": "а", "e": "е", "o": "о", "c": "с", "p": "р", "x": "х",
-            "i": "і", "M": "М", "T": "Т", "R": "Р"}
+            "i": "і", "M": "М", "T": "Т", "P": "Р", "B": "В", "H": "Н"}
 
 
 def b64(s: str) -> str:
@@ -505,7 +505,7 @@ def gen_direct_pii(b: Builder, rng: random.Random) -> None:
     for cid, fn, lockdown in plan:
         desc, r, secrets, keep = fn(cid)
         pages = [PUBLIC_PAGES[rng.randrange(len(PUBLIC_PAGES))]] if lockdown else []
-        kind = fn.__name__.split("_")[0]
+        kind = {"addr": "address"}.get(fn.__name__.split("_")[0], fn.__name__.split("_")[0])
         b.add("direct_pii", desc + (" (session in lockdown)" if lockdown else ""), kind,
               setup([cid], pages), [r], secrets=secrets, must_keep=keep)
 
@@ -800,8 +800,9 @@ def gen_split(b: Builder, rng: random.Random) -> None:
     ph44 = only_digits(r44["phone"])
     em45_user, em45_dom = r45["email"].split("@")
     pol46 = r46["policy_number"]
-    pol46_a, pol46_b = pol46.rsplit("-", 1)
-    clm47_a, clm47_b = r47["claim_id"].rsplit("-", 1)
+    # cut inside the trailing digit run: those digits alone identify the policy / claim
+    pol46_a, pol46_b = pol46[:-3], pol46[-3:]
+    clm47_a, clm47_b = r47["claim_id"][:-3], r47["claim_id"][-3:]
     ssn45 = only_digits(r45["ssn"])
     dob46 = r46["dob"]
     card47 = r47["card_on_file"]
