@@ -59,3 +59,25 @@ realized every agent needs it.
   people building agents. Invariant (Snyk) is closest on the MCP-gateway side.
 - **What's the moat?** The fingerprint vault + taint model is the product; the ledger becomes the
   compliance artifact customers can't easily replace; policy packs per industry.
+
+---
+
+**Q: How does Signal-to-Dose (Track 4) connect to LeakGate?**
+
+Track 4 is a fine-tuned Qwen2.5-3B model that classifies drug intelligence items — clinical trial
+readouts, FDA notices, competitive news — into signal types with verbatim span citations from the
+source text. LeakGate provides the enforcement layer: once Track 4 flags a span as actionable
+("Decreased lymphocytes 36 8", "frontline ACP was superior to common RW treatments"), that exact
+phrase is fingerprinted as a keyed HMAC in the vault via `leakgate/integrations/pharma_vault.py`.
+Any subsequent outbound request containing that phrase — in a Tavily search, an HTTP upload, or a
+paste-site post — is caught and blocked or rewritten. LoRA adapters (13 MB) are at
+`CodingSamurai/signal-to-dose-qwen2.5-3b-lora` on HuggingFace; pre-computed predictions for all
+240 test items are at `agent/data/drug_intel_predictions.jsonl` in this repo.
+
+**Q: What happens if the pharma agent is compromised by a poisoned result?**
+
+The `pharma_injection` scenario demonstrates this. A planted page instructs the agent to send the
+safety signal to `pharma-verify.net`. LeakGate blocks the initial request (the span is in the
+vault), blocks a base64-encoded retry, and blocks a paste-site upload that contains the signal in
+a summary. The clean follow-up search ("NSCLC EGFR first-line treatment options 2026") is allowed
+through, proving the system is not blanket-blocking.
