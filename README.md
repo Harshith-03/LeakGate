@@ -71,9 +71,18 @@ Each runs **scripted** (reproducible agent steps, real gate, real Tavily) or **l
 agent on the local model chooses its own tool calls).
 
 ## Benchmark
-`python -m bench.run` runs ~200 synthetic outbound requests through three systems: a typical regex
-DLP, LeakGate rules only, and LeakGate with the local model. Results are in `docs/BENCHMARK.md` and
-on the Benchmark page.
+200 synthetic outbound requests (65 benign, 135 leak attempts in 6 styles), written before the engine
+existed and judged by a leak checker that shares no code with the engine:
+
+| System | Leaks caught | False alarms |
+|---|---:|---:|
+| Typical regex DLP | 23.0% | 9.2% |
+| Microsoft Presidio (NER + patterns) | 34.1% | 24.6% |
+| LeakGate, rules only (no model) | 88.1% | 0.0% |
+| **LeakGate with the local model** | **98.5%** | 1.5% |
+
+`python -m bench.run --fresh` reproduces it. Method, both runs, every remaining miss and the
+limitations are in [`docs/BENCHMARK.md`](docs/BENCHMARK.md).
 
 ## Run it
 ```bash

@@ -14,7 +14,7 @@ says "replay").
 | 6 | 1:15 | Blocked card (exfiltration) | "It tells the agent to verify Maria at claims-verify.net with her SSN. LeakGate blocks it, and highlights the link and the data." |
 | 7 | 1:30 | Next two blocked items | "The page says retry in base64: blocked. The agent tries a raw connection that skips our SDK: the socket guard stops it before DNS." |
 | 8 | 1:45 | Ledger page → Verify chain | "Every decision is in a hash-chained ledger. What it tried is stored as a keyed hash; what left is stored as-is. Edit a line and verification breaks." |
-| 9 | 2:00 | Benchmark page | "On about 200 synthetic requests, regex DLP catches __%; LeakGate __%, with __% false alarms." |
+| 9 | 2:00 | Benchmark page | "On 200 synthetic requests, regex DLP catches 23% of leaks and Presidio 34%. LeakGate catches 98.5%, with 1.5% false alarms." |
 | 10 | 2:15 | Policy page | "All of this runs on this laptop. Approved places are here; the vault stores fingerprints, never the data. That's LeakGate." |
 
 Backup if the network is down: everything still works; Tavily replays recorded results and the UI
