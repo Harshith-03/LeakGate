@@ -1,0 +1,36 @@
+# ---- secrets ----
+.env
+.env.*
+!example.env
+*.pem
+*.key
+
+# ---- runtime state: ledger, install key, caches, bench results ----
+outputs/*
+!outputs/.gitkeep
+
+# ---- python ----
+.venv*/
+venv*/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ---- node / frontend ----
+node_modules/
+app/web/dist/
+.vite/
+
+# ---- models / weights ----
+*.gguf
+*.safetensors
+*.bin
+
+# ---- OS / editor / agent worktrees ----
+.DS_Store
+Thumbs.db
+.idea/
+*.log
+.claude/
