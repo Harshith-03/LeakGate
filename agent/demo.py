@@ -136,9 +136,10 @@ def _answer(emit: Emit, task: str, facts: str, results: list[dict], model: Optio
     emit("answer", "Draft reply for the adjuster (written by the local model)", detail=text, citations=cites)
 
 
-def _load(s: Session, emit: Emit, cid: str) -> dict:
+def _load(s: Session, emit: Emit, cid: str, announce: bool = True) -> dict:
     rec = customer(cid)
-    emit("tool_call", f"lookup_customer(\"{cid}\")", detail="Reads the claim file from the CRM. It stays on this machine.")
+    if announce:
+        emit("tool_call", f"lookup_customer(\"{cid}\")", detail="Reads the claim file from the CRM. It stays on this machine.")
     s.load_private(f"crm:{cid}", rec)
     emit("tool_result", f"Claim file loaded: {len(rec)} fields, now protected",
          detail=f"Name {mask(rec['name'])} · SSN {mask(rec['ssn'])} · policy {mask(rec['policy_number'])} · "
@@ -275,7 +276,7 @@ def run_prompt(task: str, gate: Gate, s: Session, emit: Emit, inject: bool = Fal
             rec = _find(customer)
         except KeyError:
             return "No such customer."
-        rec = _load(s, emit, rec["customer_id"])
+        rec = _load(s, emit, rec["customer_id"], announce=False)
         return json.dumps(rec)
 
     @tool
