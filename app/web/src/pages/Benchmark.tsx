@@ -1,11 +1,12 @@
 import { BarChart3, Gauge, Info, ShieldCheck, Sparkles, Table2, Timer } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api, useDataSource } from "../api/client";
 import type { BenchReport, BenchSystem } from "../api/types";
 import { useApi } from "../api/useApi";
+import { Monitor } from "../components/crt";
 import {
-  Chip, CopyButton, EmptyState, ErrorState, Note, PageHeader, Panel, PanelTitle, Segmented, Skeleton, Stat, cx,
+  Chip, CopyButton, EmptyState, ErrorState, Note, PageHeader, Segmented, Skeleton, Stat, cx,
 } from "../components/ui";
 import { fmtDateTime, fmtMs, fmtPct } from "../lib/format";
 import { useThemeColors } from "../lib/useThemeColors";
@@ -40,7 +41,7 @@ export default function Benchmark() {
       ) : !bench.data || !bench.data.available ? (
         <EmptyState title="No benchmark results yet" icon={<BarChart3 size={20} />}>
           Run the benchmark from the repo root; the results land in <code className="font-mono">outputs/bench.json</code> and show up here.
-          <div className="mx-auto mt-4 flex max-w-xs items-center gap-2 rounded-control border border-line bg-surface py-1.5 pl-3 pr-1.5 text-left">
+          <div className="field mx-auto mt-4 flex max-w-xs items-center gap-2 py-1.5 pl-3 pr-1.5 text-left">
             <code className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-2">{BENCH_CMD}</code>
             <CopyButton text={BENCH_CMD} label="Copy command" />
           </div>
@@ -71,7 +72,7 @@ function Report({ report, demo }: { report: BenchReport; demo: boolean }) {
   const label = (k: string) => report.categories?.[k] ?? k.replace(/_/g, " ");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-7">
       {demo && (
         <Note tone="info" icon={<Info size={15} />}>
           <strong className="font-semibold">Illustrative numbers from the demo fixtures</strong>, not a benchmark run. Start the API and run{" "}
@@ -81,20 +82,21 @@ function Report({ report, demo }: { report: BenchReport; demo: boolean }) {
 
       {/* ---- headline */}
       {lg && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <RateTile label="Catch rate" icon={<ShieldCheck size={17} />} tone="brand" lg={lg} rx={rx} pick={(s) => s.catch_rate}
-            sub="Leak cases where the private value did not leave" colorOf={colorOf} digits={1} />
-          <RateTile label="False alarm rate" icon={<Gauge size={17} />} tone="neutral" lg={lg} rx={rx} pick={(s) => s.false_alarm_rate}
-            sub="Benign cases blocked or altered (lower is better)" colorOf={colorOf} digits={1} />
-          <RateTile label="Utility" icon={<Sparkles size={17} />} tone="neutral" lg={lg} rx={rx} pick={(s) => s.utility}
-            sub="Research terms that survived into what was sent" colorOf={colorOf} digits={1} />
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+          <RateTile label="Catch rate" icon={<ShieldCheck size={16} />} tone="good" lg={lg} rx={rx} pick={(s) => s.catch_rate}
+            sub="Leak cases where the private value did not leave" colorOf={colorOf} digits={1} delay={0} />
+          <RateTile label="False alarm rate" icon={<Gauge size={16} />} tone="neutral" lg={lg} rx={rx} pick={(s) => s.false_alarm_rate}
+            sub="Benign cases blocked or altered (lower is better)" colorOf={colorOf} digits={1} delay={70} />
+          <RateTile label="Utility" icon={<Sparkles size={16} />} tone="neutral" lg={lg} rx={rx} pick={(s) => s.utility}
+            sub="Research terms that survived into what was sent" colorOf={colorOf} digits={1} delay={140} />
           <Stat
             label="Latency (p50)"
-            icon={<Timer size={17} />}
+            icon={<Timer size={16} />}
             value={<span className="tnum">{fmtMs(lg.p50_ms)}</span>}
             sub={<>p95 {fmtMs(lg.p95_ms)}{rx && <> · {rx.label}: p50 {fmtMs(rx.p50_ms)}</>}</>}
+            delay={210}
           >
-            <p className="mt-2 text-caption text-ink-3">{lg.label}. The p95 includes local-model rewrites.</p>
+            <p className="mt-2.5 text-caption text-ink-3">{lg.label}. The p95 includes local-model rewrites.</p>
           </Stat>
         </div>
       )}
@@ -112,6 +114,7 @@ function Report({ report, demo }: { report: BenchReport; demo: boolean }) {
         colorOf={colorOf}
         colors={colors}
         measure="caught"
+        plate="LG-07 · Leaks"
       />
       <CategoryPanel
         title="Benign cases: share left alone"
@@ -123,19 +126,19 @@ function Report({ report, demo }: { report: BenchReport; demo: boolean }) {
         colorOf={colorOf}
         colors={colors}
         measure="left alone"
+        plate="LG-08 · Benign"
       />
 
       <Examples report={report} systems={systems} label={label} />
 
-      <Panel tone="muted">
-        <PanelTitle>How the numbers are scored</PanelTitle>
+      <Monitor title="How the numbers are scored" led="off" plate="LG-09 · Method">
         <ul className="space-y-1.5 text-support text-ink-2">
           <li><strong className="font-semibold text-ink">Catch rate</strong> (leak cases): the private value did not leave. Blocked, or rewritten/redacted and the sent payload no longer contains it, checked against each case's ground-truth secrets in all encodings.</li>
           <li><strong className="font-semibold text-ink">False alarm rate</strong> (benign cases): blocked or altered when nothing private was present.</li>
           <li><strong className="font-semibold text-ink">Utility</strong> (cases with research terms to keep that weren't blocked): the share of those terms that survived into what was sent. A blocked benign case scores 0.</li>
           <li><strong className="font-semibold text-ink">Systems</strong>: Regex DLP is patterns only (what most DLP does); LeakGate rules is layers 1-4; LeakGate full adds the local model (context layer and rewrites).</li>
         </ul>
-      </Panel>
+      </Monitor>
     </div>
   );
 }
@@ -144,22 +147,23 @@ const rank = (name: string) => { const i = SYSTEM_ORDER.indexOf(name); return i 
 
 // ---------------------------------------------------------------- tiles
 
-function RateTile({ label, icon, tone, lg, rx, pick, sub, colorOf, digits = 0 }: {
-  label: string; icon: ReactNode; tone: "brand" | "neutral"; lg: BenchSystem; rx?: BenchSystem;
-  pick: (s: BenchSystem) => number | null; sub: string; colorOf: (n: string) => string; digits?: number;
+function RateTile({ label, icon, tone, lg, rx, pick, sub, colorOf, digits = 0, delay = 0 }: {
+  label: string; icon: ReactNode; tone: "good" | "neutral"; lg: BenchSystem; rx?: BenchSystem;
+  pick: (s: BenchSystem) => number | null; sub: string; colorOf: (n: string) => string; digits?: number; delay?: number;
 }) {
   const rows = [lg, rx].filter((s): s is BenchSystem => !!s);
   return (
-    <Stat label={label} icon={icon} tone={tone} value={<span className="tnum">{fmtPct(pick(lg), digits)}</span>}>
-      <div className="mt-3 space-y-1.5" aria-label={`${label}: ${rows.map((s) => `${s.label} ${fmtPct(pick(s), digits)}`).join(", ")}`}>
+    <Stat label={label} icon={icon} tone={tone} delay={delay} value={<span className="tnum">{fmtPct(pick(lg), digits)}</span>}>
+      <div className="mt-3.5 space-y-2" aria-label={`${label}: ${rows.map((s) => `${s.label} ${fmtPct(pick(s), digits)}`).join(", ")}`}>
         {rows.map((s) => {
           const v = pick(s);
+          const c = colorOf(s.name);
           return (
-            <div key={s.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 text-caption" aria-hidden>
+            <div key={s.name} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 text-caption" aria-hidden>
               <span className="truncate text-ink-2">{s.label}</span>
-              <span className="tnum text-right font-medium text-ink">{fmtPct(v, digits)}</span>
-              <span className={cx("col-span-2 h-1.5 overflow-hidden rounded-full bg-surface-3", v === null && "hatch")}>
-                {v !== null && <span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(1, v)) * 100}%`, background: colorOf(s.name) }} />}
+              <span className="tnum text-right font-mono text-[11.5px] font-medium text-ink">{fmtPct(v, digits)}</span>
+              <span className={cx("col-span-2 h-1.5 overflow-hidden rounded-full bg-black/50 ring-1 ring-inset ring-white/5", v === null && "hatch")}>
+                {v !== null && <span className="block h-full rounded-full" style={{ width: `${Math.max(0, Math.min(1, v)) * 100}%`, background: c, boxShadow: `0 0 8px ${c}` }} />}
               </span>
             </div>
           );
@@ -172,16 +176,16 @@ function RateTile({ label, icon, tone, lg, rx, pick, sub, colorOf, digits = 0 }:
 
 function Legend({ systems, colorOf, report }: { systems: BenchSystem[]; colorOf: (n: string) => string; report: BenchReport }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-caption font-medium text-ink-2" aria-label="Legend">
+    <div className="rack flex flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-caption font-medium text-chrome" aria-label="Legend">
         {systems.map((s) => (
           <span key={s.name} className="inline-flex items-center gap-2">
-            <span aria-hidden className="h-3 w-3 rounded-[3px]" style={{ background: colorOf(s.name) }} />
+            <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: colorOf(s.name), boxShadow: `0 0 8px ${colorOf(s.name)}` }} />
             {s.label}
           </span>
         ))}
       </div>
-      <div className="text-caption text-ink-3">
+      <div className="text-caption text-chrome-2">
         <span className="tnum">{report.n_cases}</span> cases · run {fmtDateTime(report.run_at)} · model <span className="font-mono text-[11.5px]">{report.model}</span>
         {report.llm_cache && <> · model cache {report.llm_cache}</>}
       </div>
@@ -201,7 +205,7 @@ function RunNotes({ systems }: { systems: BenchSystem[] }) {
     <>
       {notes.length > 0 && <Note tone="warn" icon={<Info size={15} />}>{notes.map((n) => <div key={n}>{n}</div>)}</Note>}
       {walls.length > 0 && (
-        <p className="text-caption text-ink-3">
+        <p className="relative text-caption text-chrome-2">
           Wall time: {walls.map((s) => `${s.label} ${s.wall_s} s`).join(" · ")}.
           {systems.some((s) => s.n_leak_cases !== undefined) && (
             <> Cases per system: {systems.filter((s) => s.n_leak_cases !== undefined).map((s) => `${s.n_leak_cases} leak + ${s.n_benign_cases ?? 0} benign`)[0]}.</>
@@ -216,9 +220,9 @@ function RunNotes({ systems }: { systems: BenchSystem[] }) {
 
 interface CatRow { key: string; label: string; n: number; [system: string]: number | string | null }
 
-function CategoryPanel({ title, hint, cats, counts, systems, label, colorOf, colors, measure }: {
+function CategoryPanel({ title, hint, cats, counts, systems, label, colorOf, colors, measure, plate }: {
   title: string; hint: string; cats: string[]; counts?: Record<string, number>; systems: BenchSystem[]; label: (k: string) => string;
-  colorOf: (n: string) => string; colors: Record<(typeof TOKENS)[number], string>; measure: string;
+  colorOf: (n: string) => string; colors: Record<(typeof TOKENS)[number], string>; measure: string; plate?: string;
 }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const rows: CatRow[] = cats.map((c) => {
@@ -235,24 +239,24 @@ function CategoryPanel({ title, hint, cats, counts, systems, label, colorOf, col
   const height = rows.length * (systems.length * (bar + 3) + 22) + 44;
 
   return (
-    <Panel>
-      <PanelTitle
-        hint={hint}
-        right={
-          <Segmented<"chart" | "table">
-            size="sm"
-            label={`${title}: view`}
-            value={view}
-            onChange={setView}
-            options={[
-              { value: "chart", label: <><BarChart3 size={13} aria-hidden />Chart</> },
-              { value: "table", label: <><Table2 size={13} aria-hidden />Table</> },
-            ]}
-          />
-        }
-      >
-        {title}
-      </PanelTitle>
+    <Monitor
+      title={title}
+      led="brand"
+      plate={plate}
+      right={
+        <Segmented<"chart" | "table">
+          size="sm"
+          label={`${title}: view`}
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "chart", label: <><BarChart3 size={13} aria-hidden /><span className="max-sm:sr-only">Chart</span></> },
+            { value: "table", label: <><Table2 size={13} aria-hidden /><span className="max-sm:sr-only">Table</span></> },
+          ]}
+        />
+      }
+    >
+      <p className="mb-4 max-w-[90ch] text-support text-ink-3">{hint}</p>
       {view === "table" ? (
         <CategoryTable rows={rows} systems={systems} measure={measure} />
       ) : (
@@ -263,7 +267,7 @@ function CategoryPanel({ title, hint, cats, counts, systems, label, colorOf, col
           </figcaption>
           <div style={{ height }} role="img" aria-label={`${title}, per category`}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 16, bottom: 18, left: 4 }} barGap={3} barCategoryGap={11}>
+              <BarChart data={rows} layout="vertical" margin={{ top: 4, right: 40, bottom: 18, left: 4 }} barGap={3} barCategoryGap={11}>
                 <CartesianGrid horizontal={false} stroke={colors.grid} />
                 <XAxis
                   type="number"
@@ -289,14 +293,24 @@ function CategoryPanel({ title, hint, cats, counts, systems, label, colorOf, col
                   content={(p: TipProps) => <CatTip {...p} systems={systems} colorOf={colorOf} rows={rows} measure={measure} />}
                 />
                 {systems.map((s) => (
-                  <Bar key={s.name} dataKey={s.name} name={s.label} fill={colorOf(s.name)} barSize={bar} radius={[0, 4, 4, 0]} isAnimationActive={false} />
+                  <Bar key={s.name} dataKey={s.name} name={s.label} fill={colorOf(s.name)} barSize={bar} radius={[0, 4, 4, 0]} isAnimationActive={false}
+                    style={{ filter: `drop-shadow(0 0 4px ${colorOf(s.name)})` }}>
+                    <LabelList
+                      dataKey={s.name}
+                      position="right"
+                      offset={5}
+                      fontSize={10}
+                      fill={colors["ink-2"]}
+                      formatter={(v: unknown) => (typeof v === "number" ? `${Math.round(v)}%` : "")}
+                    />
+                  </Bar>
                 ))}
               </BarChart>
             </ResponsiveContainer>
           </div>
         </figure>
       )}
-    </Panel>
+    </Monitor>
   );
 }
 
@@ -338,7 +352,7 @@ function CatTip({ active, label, payload, systems, colorOf, rows, measure }: Tip
   if (!active || !payload?.length) return null;
   const row = rows.find((r) => r.label === label);
   return (
-    <div className="rounded-control border border-line bg-surface px-3 py-2.5 text-caption shadow-lg">
+    <div className="rounded-control border border-line-strong bg-[#08110d]/95 px-3 py-2.5 text-caption shadow-lg backdrop-blur">
       <div className="font-semibold text-ink">{label}</div>
       <div className="mb-1.5 text-ink-3">n={row?.n} · share {measure}</div>
       {systems.map((s) => {
@@ -417,26 +431,24 @@ const OUTCOME_HINT: Record<string, string> = {
 };
 
 const TONE_CLASS: Record<OutcomeTone, string> = {
-  good: "border-transparent bg-good-soft text-good",
-  crit: "border-transparent bg-crit-soft text-crit",
-  warn: "border-transparent bg-warn-soft text-warn",
-  neutral: "border-transparent bg-surface-3 text-ink-2",
+  good: "border-good/35 bg-good-soft text-good",
+  crit: "border-crit/40 bg-crit-soft text-crit",
+  warn: "border-warn/35 bg-warn-soft text-warn",
+  neutral: "border-line-strong bg-surface-3 text-ink-2",
 };
 
 function Examples({ report, systems, label }: { report: BenchReport; systems: BenchSystem[]; label: (k: string) => string }) {
   if (!report.examples?.length) return null;
   return (
-    <Panel padded={false}>
-      <div className="px-[var(--pad-card)] pt-[var(--pad-card)]">
-        <PanelTitle hint="A few cases from the run, with what each system did. Leaked is a miss; on benign cases, blocked or altered is a false alarm.">
-          Example cases
-        </PanelTitle>
-      </div>
+    <Monitor title="Example cases" led="brand" plate="LG-10 · Cases" padded={false}>
+      <p className="px-[var(--pad-card)] pb-4 pt-[var(--pad-card)] text-support text-ink-3">
+        A few cases from the run, with what each system did. Leaked is a miss; on benign cases, blocked or altered is a false alarm.
+      </p>
       <div className="scroll-thin overflow-x-auto">
         <table className="w-full min-w-[760px] border-collapse text-left text-[13px]">
           <caption className="sr-only">Example benchmark cases and each system's outcome</caption>
           <thead>
-            <tr className="border-y border-line bg-surface-2 text-micro font-semibold uppercase tracking-[0.06em] text-ink-3">
+            <tr className="border-y border-line bg-black/25 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
               <th scope="col" className="py-2.5 pl-[var(--pad-card)] pr-3">Case</th>
               <th scope="col" className="px-3 py-2.5">What it tests</th>
               {systems.map((s) => <th key={s.name} scope="col" className="px-3 py-2.5">{s.label}</th>)}
@@ -467,6 +479,6 @@ function Examples({ report, systems, label }: { report: BenchReport; systems: Be
           </tbody>
         </table>
       </div>
-    </Panel>
+    </Monitor>
   );
 }

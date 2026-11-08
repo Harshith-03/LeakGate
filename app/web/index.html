@@ -1,19 +1,17 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#080d1c" />
     <meta name="description" content="LeakGate: a firewall for AI agents. Approved destinations only, cleaned-up messages, and proof of what left." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>LeakGate</title>
-    <script>
-      // Apply the saved (or system) theme before first paint: inline, no network, no flash.
-      try {
-        var t = localStorage.getItem("lg.theme");
-        if (t !== "dark" && t !== "light") t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-        document.documentElement.setAttribute("data-theme", t);
-      } catch (e) {}
-    </script>
+    <style>
+      /* first paint matches the control room (no white flash before the CSS bundle arrives) */
+      html { background: #080d1c; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

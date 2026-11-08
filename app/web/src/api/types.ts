@@ -211,9 +211,29 @@ export interface Status {
   bypass_attempts?: BypassAttempt[];
 }
 
+/**
+ * `POST /api/sessions`. A guided demo is `{scenario: "research" | "injection" | "insider", mode}`.
+ * A free-form prompt is `{scenario: "custom", mode: "live", prompt, plant_poison}`: the local model drives a
+ * LangGraph agent (lookup_customer, web_search, fetch_url, send_message) behind the gate. The API answers
+ * 400 `{detail}` for an empty prompt or one over PROMPT_MAX characters.
+ */
 export interface CreateSessionRequest {
   scenario: string;
   mode: RunMode;
+  /** custom only: what the user typed (max PROMPT_MAX characters) */
+  prompt?: string;
+  /** custom only: plant a red-team page with hidden instructions in the search results */
+  plant_poison?: boolean;
+}
+
+export const CUSTOM_SCENARIO = "custom";
+export const PROMPT_MAX = 2000;
+
+/** `GET /api/presets`: suggested prompts for the prompt console. */
+export interface Preset {
+  title: string;
+  prompt: string;
+  plant_poison: boolean;
 }
 
 export interface InspectRequest {

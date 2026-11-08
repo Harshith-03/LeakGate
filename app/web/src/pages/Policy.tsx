@@ -3,7 +3,8 @@ import { api } from "../api/client";
 import type { Policy, VaultSummary } from "../api/types";
 import { useApi } from "../api/useApi";
 import { ModeChip } from "../components/chips";
-import { Chip, CopyButton, ErrorState, IconBadge, PageHeader, Panel, PanelTitle, Skeleton, Stat } from "../components/ui";
+import { Monitor } from "../components/crt";
+import { Chip, CopyButton, ErrorState, IconBadge, PageHeader, Skeleton, Stat } from "../components/ui";
 import { CHANNEL_LABEL, kindLabel } from "../lib/format";
 
 export default function PolicyPage() {
@@ -17,7 +18,7 @@ export default function PolicyPage() {
         title="Policy & vault"
         subtitle="Where the agent may send data, what never leaves, and what LeakGate knows about your private data (which is never the data itself)."
       />
-      <div className="space-y-6">
+      <div className="space-y-7">
         {policy.error && !policy.data ? (
           <ErrorState error={policy.error} onRetry={policy.reload} />
         ) : !policy.data ? (
@@ -40,8 +41,8 @@ export default function PolicyPage() {
 function PolicyView({ p }: { p: Policy }) {
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat label="Policy" icon={<ShieldCheck size={17} />} tone="brand"
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat label="Policy" icon={<ShieldCheck size={16} />} tone="brand"
           value={<span className="block break-words font-mono text-[15px] font-medium leading-snug tracking-normal [overflow-wrap:anywhere]" title={p.name}>{p.name.split("-").map((w, i, a) => <span key={i}>{w}{i < a.length - 1 ? "-" : ""}<wbr /></span>)}</span>}>
           <div className="mt-3"><ModeChip mode={p.mode} /></div>
           <p className="mt-2 text-caption text-ink-3">
@@ -50,24 +51,24 @@ function PolicyView({ p }: { p: Policy }) {
               : "Monitor mode: every decision is logged, but the original request is sent."}
           </p>
         </Stat>
-        <Stat label="Approved destinations" icon={<Check size={17} />} value={<span className="tnum">{p.destinations.length}</span>}
-          sub="Everything else is blocked once private data is read" />
-        <Stat label="Rewrite channels" icon={<PenLine size={17} />} value={<span className="tnum">{p.rewrite_channels.length}</span>}
-          sub={p.rewrite_channels.map((c) => CHANNEL_LABEL[c] ?? c).join(", ") || "None"} />
-        <Stat label="Context model" icon={<Cpu size={17} />} tone={p.use_context_model ? "good" : "neutral"}
-          value={p.use_context_model ? "On" : "Off"}
+        <Stat label="Approved destinations" icon={<Check size={16} />} value={<span className="tnum">{p.destinations.length}</span>}
+          sub="Everything else is blocked once private data is read" delay={70} />
+        <Stat label="Rewrite channels" icon={<PenLine size={16} />} value={<span className="tnum">{p.rewrite_channels.length}</span>}
+          sub={p.rewrite_channels.map((c) => CHANNEL_LABEL[c] ?? c).join(", ") || "None"} delay={140} />
+        <Stat label="Context model" icon={<Cpu size={16} />} tone={p.use_context_model ? "good" : "neutral"}
+          value={p.use_context_model ? "On" : "Off"} delay={210}
           sub={p.use_context_model ? "Local model checks what rules can't see" : "Rules only (layers 1-4)"} />
       </div>
 
-      <Panel padded={false}>
-        <div className="px-[var(--pad-card)] pt-[var(--pad-card)]">
-          <PanelTitle hint="The only hosts the agent may reach once it has read private data. In lockdown (private data + web content), hosts not allowed in lockdown are cut too.">Allowlisted destinations</PanelTitle>
-        </div>
+      <Monitor title="Allowlisted destinations" plate="LG-11 · Allowlist" led="ok" padded={false}>
+        <p className="px-[var(--pad-card)] pb-4 pt-[var(--pad-card)] text-support text-ink-3">
+          The only hosts the agent may reach once it has read private data. In lockdown (private data + web content), hosts not allowed in lockdown are cut too.
+        </p>
         <div className="scroll-thin overflow-x-auto">
           <table className="w-full min-w-[640px] border-collapse text-left text-[13px]">
             <caption className="sr-only">Allowlisted destinations</caption>
             <thead>
-              <tr className="border-y border-line bg-surface-2 text-micro font-semibold uppercase tracking-[0.06em] text-ink-3">
+              <tr className="border-y border-line bg-black/25 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
                 <th scope="col" className="py-2.5 pl-[var(--pad-card)] pr-3">Host</th>
                 <th scope="col" className="px-3 py-2.5">Channels</th>
                 <th scope="col" className="px-3 py-2.5">Purpose</th>
@@ -76,15 +77,17 @@ function PolicyView({ p }: { p: Policy }) {
             </thead>
             <tbody>
               {p.destinations.map((d) => (
-                <tr key={d.host} className="border-b border-line align-top last:border-0">
-                  <td className="py-3 pl-[var(--pad-card)] pr-3 font-mono text-[12.5px] font-medium text-ink">{d.host}</td>
+                <tr key={d.host} className="border-b border-line align-top transition-colors last:border-0 hover:bg-white/[0.025]">
+                  <td className="py-3 pl-[var(--pad-card)] pr-3 font-mono text-[12.5px] font-medium text-ink">
+                    <span className="mr-1.5 text-good" aria-hidden>▸</span>{d.host}
+                  </td>
                   <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-1">{d.channels.map((c) => <Chip key={c} className="border-line bg-surface text-ink-2">{CHANNEL_LABEL[c] ?? c}</Chip>)}</div>
+                    <div className="flex flex-wrap gap-1">{d.channels.map((c) => <Chip key={c} className="border-line-strong bg-transparent font-mono text-ink-2">{CHANNEL_LABEL[c] ?? c}</Chip>)}</div>
                   </td>
                   <td className="px-3 py-3 text-ink-2">{d.purpose}</td>
                   <td className="px-3 py-3 pr-[var(--pad-card)]">
                     {d.allow_in_lockdown
-                      ? <span className="inline-flex items-center gap-1.5 font-medium text-good"><Check size={14} aria-hidden />Allowed</span>
+                      ? <span className="glow-soft inline-flex items-center gap-1.5 font-medium text-good"><Check size={14} aria-hidden />Allowed</span>
                       : <span className="inline-flex items-center gap-1.5 font-medium text-ink-3"><X size={14} aria-hidden />Not in lockdown</span>}
                   </td>
                 </tr>
@@ -92,30 +95,30 @@ function PolicyView({ p }: { p: Policy }) {
             </tbody>
           </table>
         </div>
-      </Panel>
+      </Monitor>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel>
-          <PanelTitle hint="Findings of these kinds are blocked outright, never rewritten.">Always blocked</PanelTitle>
+      <div className="grid gap-7 lg:grid-cols-2">
+        <Monitor title="Always blocked" plate="LG-12 · Block list" led="alarm" tone="crit">
+          <p className="mb-3.5 text-support text-ink-3">Findings of these kinds are blocked outright, never rewritten.</p>
           <div className="flex flex-wrap gap-1.5">
             {p.block_kinds.map((k) => (
-              <Chip key={k} className="border-transparent bg-crit-soft text-crit" icon={<Ban size={12} />} title={k}>{kindLabel(k)}</Chip>
+              <Chip key={k} className="border-crit/40 bg-crit-soft text-crit" icon={<Ban size={12} />} title={k}>{kindLabel(k)}</Chip>
             ))}
           </div>
-          <p className="mt-3 text-caption text-ink-3">Encoded or split attempts, and any host off the allowlist once private data has been read, are blocked too.</p>
-        </Panel>
-        <Panel>
-          <PanelTitle hint="Fingerprinted when the policy loads. The API only ever shows them masked.">Confidential terms</PanelTitle>
+          <p className="mt-3.5 text-caption text-ink-3">Encoded or split attempts, and any host off the allowlist once private data has been read, are blocked too.</p>
+        </Monitor>
+        <Monitor title="Confidential terms" plate="LG-13 · Masked" led="warn" tone="warn">
+          <p className="mb-3.5 text-support text-ink-3">Fingerprinted when the policy loads. The API only ever shows them masked.</p>
           {p.confidential_terms.length ? (
             <ul className="flex flex-wrap gap-1.5">
               {p.confidential_terms.map((t, i) => (
-                <li key={i}><Chip className="border-line bg-surface-2 font-mono text-ink-2" icon={<EyeOff size={12} className="text-ink-3" />}>{t}</Chip></li>
+                <li key={i}><Chip className="border-line-strong bg-surface-2 font-mono text-ink-2" icon={<EyeOff size={12} className="text-ink-3" />}>{t}</Chip></li>
               ))}
             </ul>
           ) : (
             <p className="text-support text-ink-3">No confidential terms configured.</p>
           )}
-        </Panel>
+        </Monitor>
       </div>
     </>
   );
@@ -123,21 +126,27 @@ function PolicyView({ p }: { p: Policy }) {
 
 function VaultView({ v }: { v: VaultSummary }) {
   return (
-    <Panel>
+    <Monitor
+      title="Vault"
+      plate="LG-14 · Keyed hashes"
+      led="ok"
+      tone="good"
+      right={
+        <div className="readout flex items-center gap-1 py-0.5 pl-2.5 pr-0.5" title="First 8 hex characters of SHA-256 of the install key: identifies the key, reveals nothing">
+          <KeyRound size={12} className="text-chrome-3" aria-hidden />
+          <span className="text-[11px] text-chrome-3">Key ID</span>
+          <code className="font-mono text-[12px] font-medium text-chrome">{v.key_id}</code>
+          <CopyButton text={v.key_id} label="Copy key ID" />
+        </div>
+      }
+    >
       <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start">
-        <IconBadge tone="brand" size="lg"><Lock size={20} /></IconBadge>
+        <IconBadge tone="good" size="lg"><Lock size={20} /></IconBadge>
         <div className="min-w-0 flex-1">
-          <h2 className="font-display text-[18px] font-semibold leading-tight text-ink">Vault</h2>
-          <p className="mt-1 text-body text-ink-2">LeakGate stores keyed hashes of your private data, never the data.</p>
+          <p className="glow-soft text-body font-medium text-ink">LeakGate stores keyed hashes of your private data, never the data.</p>
           <p className="mt-1 text-support text-ink-3">
             That is how it recognises a customer's SSN in base64 or a phone number spelled out, without keeping a copy to leak.
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1 self-start rounded-control border border-line bg-surface-2 py-1 pl-3 pr-1" title="First 8 hex characters of SHA-256 of the install key: identifies the key, reveals nothing">
-          <KeyRound size={13} className="text-ink-3" aria-hidden />
-          <span className="text-caption text-ink-3">Key ID</span>
-          <code className="font-mono text-[12.5px] font-medium text-ink">{v.key_id}</code>
-          <CopyButton text={v.key_id} label="Copy key ID" />
         </div>
       </div>
 
@@ -151,7 +160,7 @@ function VaultView({ v }: { v: VaultSummary }) {
         <table className="w-full min-w-[520px] border-collapse text-left text-[13px]">
           <caption className="sr-only">Vault sources: field names and fingerprint counts, no values</caption>
           <thead>
-            <tr className="border-b border-line text-micro font-semibold uppercase tracking-[0.06em] text-ink-3">
+            <tr className="border-b border-line font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-3">
               <th scope="col" className="py-2 pr-3">Source</th>
               <th scope="col" className="px-3 py-2">Fields (names only)</th>
               <th scope="col" className="py-2 pl-3 text-right">Fingerprints</th>
@@ -167,24 +176,24 @@ function VaultView({ v }: { v: VaultSummary }) {
                 </td>
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">
-                    {(s.fields ?? []).map((f) => <span key={f} className="rounded-md bg-surface-3 px-1.5 py-0.5 font-mono text-[11.5px] text-ink-2">{f}</span>)}
+                    {(s.fields ?? []).map((f) => <span key={f} className="rounded-[4px] bg-surface-3 px-1.5 py-0.5 font-mono text-[11.5px] text-ink-2 ring-1 ring-inset ring-line-strong">{f}</span>)}
                   </div>
                 </td>
-                <td className="tnum py-3 pl-3 text-right font-medium text-ink">{s.fingerprints}</td>
+                <td className="tnum py-3 pl-3 text-right font-mono font-medium text-ink">{s.fingerprints}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-    </Panel>
+    </Monitor>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-panel bg-surface-2 px-4 py-3">
-      <div className="text-caption font-medium text-ink-3">{label}</div>
-      <div className="tnum mt-1 font-display text-[24px] font-semibold leading-none text-ink">{value.toLocaleString()}</div>
+    <div className="readout px-4 py-3">
+      <div className="eyebrow text-[9.5px] text-chrome-3">{label}</div>
+      <div className="tnum glow mt-1.5 font-crt text-[34px] leading-none text-good">{value.toLocaleString()}</div>
     </div>
   );
 }
